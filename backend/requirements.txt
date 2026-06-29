@@ -1,0 +1,17 @@
+fastapi
+uvicorn[standard]
+sqlalchemy
+psycopg2-binary
+python-dotenv
+requests
+pgvector
+
+# Validation
+pydantic
+pydantic-settings
+
+# File upload support
+python-multipart
+
+# PDF Reading
+pypdf
