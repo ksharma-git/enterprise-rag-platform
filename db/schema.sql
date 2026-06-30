@@ -36,3 +36,14 @@ CREATE INDEX document_chunks_embedding_idx
 ON document_chunks
 USING ivfflat (embedding vector_cosine_ops)
 WITH (lists = 100);
+
+
+ALTER TABLE document_chunks
+ADD COLUMN IF NOT EXISTS search_vector tsvector;
+
+UPDATE document_chunks
+SET search_vector = to_tsvector('english', chunk_text);
+
+CREATE INDEX IF NOT EXISTS document_chunks_search_idx
+ON document_chunks
+USING GIN (search_vector);

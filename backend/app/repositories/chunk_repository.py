@@ -48,3 +48,39 @@ def search_similar_chunks(db: Session, query_embedding: list[float], top_k: int 
     )
 
     return result.mappings().all()
+
+def update_chunk_search_vector(db: Session) -> None:
+    db.execute(
+        text("""
+            UPDATE document_chunks
+            SET search_vector = to_tsvector('english', chunk_text)
+            WHERE search_vector IS NULL
+        """)
+    )
+    db.commit()
+
+def keyword_search_chunks(db: Session, query: str, top_k: int = 5):
+    sql = text("""
+           SELECT
+               dc.id,
+               dc.document_id,
+               d.filename,
+               dc.chunk_text,
+               dc.chunk_index,
+               dc.chunk_metadata,
+               ts_rank(dc.search_vector, plainto_tsquery('english', :query)) AS keyword_score
+           FROM document_chunks dc
+           JOIN documents d ON d.id = dc.document_id
+           WHERE dc.search_vector @@ plainto_tsquery('english', :query)
+           ORDER BY keyword_score DESC
+           LIMIT :top_k
+       """)
+
+    result = db.execute(
+        sql,
+        {
+            "query": query,
+            "top_k": top_k,
+        },
+    )
+    return result.mappings().all()
