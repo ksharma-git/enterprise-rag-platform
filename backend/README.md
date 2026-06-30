@@ -7,15 +7,15 @@ FastAPI backend for document upload, text extraction, chunking, embeddings, sema
 ```text
 backend/
 ├── app/
-│   ├── main.py                FastAPI app and API routes
+│   ├── api/                   FastAPI routes
+│   ├── services/              Business workflows and AI integrations
+│   ├── repositories/          Database operations
+│   ├── utils/                 Small helper functions
+│   ├── main.py                FastAPI app setup
+│   ├── config.py              App constants and environment values
 │   ├── database.py            SQLAlchemy setup and DB helper functions
 │   ├── models.py              SQLAlchemy models
-│   ├── schemas.py             Pydantic request schemas
-│   ├── document_service.py    File validation, extraction, and chunking
-│   ├── embedding_service.py   Ollama embedding generation
-│   ├── llm_service.py         Ollama answer generation
-│   ├── rag_service.py         RAG context and prompt building
-│   └── file_store.py          Uploaded file persistence
+│   └── schemas.py             Pydantic request schemas
 └── README.md
 ```
 
@@ -33,7 +33,6 @@ backend/app/
 ├── api/
 │   ├── health.py
 │   ├── documents.py
-│   ├── search.py
 │   └── chat.py
 ├── services/
 │   ├── document_service.py
@@ -44,8 +43,7 @@ backend/app/
 │   ├── document_repository.py
 │   └── chunk_repository.py
 └── utils/
-    ├── file_store.py
-    └── text_splitter.py
+    └── file_store.py
 ```
 
 ## Request Flow
