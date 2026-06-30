@@ -1,5 +1,3 @@
-import os
-
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
@@ -22,7 +20,7 @@ def list_chunks(db: Session, document_model, chunk_model):
     )
 
 
-def search_similar_chunks(db: Session, query_embedding: list[float], top_k: int = 5):
+def search_similar_chunks(db: Session, query_embedding: list[float], document_id=None, filename=None, top_k: int = 5):
     sql = text("""
         SELECT
             dc.id,
@@ -35,6 +33,8 @@ def search_similar_chunks(db: Session, query_embedding: list[float], top_k: int 
         FROM document_chunks dc
         JOIN documents d ON d.id = dc.document_id
         WHERE dc.embedding IS NOT NULL
+        AND (:document_id IS NULL OR dc.document_id = CAST(:document_id AS uuid))
+        AND (:filename IS NULL OR d.filename = :filename)
         ORDER BY dc.embedding <=> CAST(:query_embedding AS vector)
         LIMIT :top_k
     """)
@@ -43,8 +43,50 @@ def search_similar_chunks(db: Session, query_embedding: list[float], top_k: int 
         sql,
         {
             "query_embedding": query_embedding,
+            "document_id": document_id,
+            "filename": filename,
             "top_k": top_k,
         },
     )
 
+    return result.mappings().all()
+
+def update_chunk_search_vectors(db: Session) -> None:
+    db.execute(
+        text("""
+            UPDATE document_chunks
+            SET search_vector = to_tsvector('english', chunk_text)
+            WHERE search_vector IS NULL
+        """)
+    )
+    db.commit()
+
+def keyword_search_chunks(db: Session, query: str, document_id=None, filename=None, top_k: int = 5):
+    sql = text("""
+           SELECT
+               dc.id,
+               dc.document_id,
+               d.filename,
+               dc.chunk_text,
+               dc.chunk_index,
+               dc.chunk_metadata,
+               ts_rank(dc.search_vector, plainto_tsquery('english', :query)) AS keyword_score
+           FROM document_chunks dc
+           JOIN documents d ON d.id = dc.document_id
+           WHERE dc.search_vector @@ plainto_tsquery('english', :query)
+           AND (:document_id IS NULL OR dc.document_id = CAST(:document_id AS uuid))
+           AND (:filename IS NULL OR d.filename = :filename)
+           ORDER BY keyword_score DESC
+           LIMIT :top_k
+       """)
+
+    result = db.execute(
+        sql,
+        {
+            "query": query,
+            "document_id": document_id,
+            "filename": filename,
+            "top_k": top_k,
+        },
+    )
     return result.mappings().all()

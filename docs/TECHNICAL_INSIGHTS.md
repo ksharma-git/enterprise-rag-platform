@@ -347,6 +347,178 @@ Example search result:
 
 The backend then sends those chunks to the LLM as context.
 
+## Hybrid Search
+
+Hybrid search combines semantic vector search with keyword search.
+
+```text
+User Question
+        |
+        v
+        +--------------+
+        |              |
+        v              v
+Vector Search    Keyword Search
+        |              |
+        +------+-------+
+               |
+               v
+        Merge Results
+               |
+               v
+          Top K Chunks
+               |
+               v
+              LLM
+```
+
+This is what many enterprise search systems actually do. They usually do not rely on only vector search. Enterprise knowledge assistants often combine lexical retrieval, also called keyword search, with semantic retrieval before sending context to the LLM.
+
+The exact algorithms vary, but the idea is the same: use multiple retrieval signals.
+
+### Why Hybrid Search Matters
+
+Vector search is excellent for meaning. It can match:
+
+```text
+"reset password"
+```
+
+with:
+
+```text
+"recover account credentials"
+```
+
+Keyword search is excellent for exact text. It can match:
+
+```text
+ERR_CONN_TIMEOUT
+AKS
+SOC2
+GitHub Actions
+Invoice-9821
+```
+
+These exact words, acronyms, product names, and error codes matter a lot in enterprise documents.
+
+| Search Type | Strength | Weakness |
+| --- | --- | --- |
+| Vector search | Understands meaning | Can miss exact terms, IDs, acronyms, and error codes |
+| Keyword search | Finds exact words | Does not understand meaning |
+| Hybrid search | Combines both signals | Needs a merge strategy |
+
+### Interview Answer
+
+If an interviewer asks:
+
+```text
+Why did you implement hybrid search?
+```
+
+A strong answer is:
+
+```text
+Vector search is excellent for semantic similarity but can miss exact keywords,
+acronyms, product names, and error codes. Keyword search excels at exact matches
+but does not understand meaning. By combining both, the system retrieves more
+accurate and complete context, especially for enterprise documents containing
+internal terminology.
+```
+
+### Ways To Combine Results
+
+There are several ways to combine vector and keyword results.
+
+| Method | Description | Good For |
+| --- | --- | --- |
+| Union + deduplication | Combine both result sets and remove duplicates | Simplest version |
+| Weighted scoring | Calculate a score from vector + keyword scores | Learning and tuning |
+| Reciprocal Rank Fusion, RRF | Merge based on ranking position | Many production search systems |
+
+This project uses a simple weighted scoring approach:
+
+```text
+hybrid_score = vector_score * 0.7 + keyword_score * 0.3
+```
+
+This keeps semantic search as the stronger signal while still boosting exact keyword matches.
+
+## PostgreSQL Keyword Search
+
+PostgreSQL supports full-text search with `tsvector`.
+
+This project stores a searchable keyword vector for each chunk:
+
+```sql
+UPDATE document_chunks
+SET search_vector = to_tsvector('english', chunk_text);
+```
+
+This is where the keyword-search magic happens.
+
+Suppose the chunk text is:
+
+```text
+GitHub Actions deploys applications automatically.
+```
+
+`to_tsvector()` converts it into something like:
+
+```text
+'action':2
+'applic':4
+'automat':5
+'deploy':3
+'github':1
+```
+
+Notice what happened:
+
+| Original Word | Stored Form |
+| --- | --- |
+| `Actions` | `action` |
+| `applications` | `applic` |
+| `automatically` | `automat` |
+| `deploys` | `deploy` |
+
+This process is called **stemming**. PostgreSQL reduces words to a root-like form so searches can match related word forms.
+
+PostgreSQL also removes many **stop words**, such as:
+
+```text
+the
+a
+an
+is
+of
+to
+```
+
+Stop words are common words that usually do not help search relevance.
+
+### GIN Index
+
+The keyword search index is:
+
+```sql
+CREATE INDEX IF NOT EXISTS document_chunks_search_idx
+ON document_chunks
+USING GIN (search_vector);
+```
+
+GIN stands for **Generalized Inverted Index**.
+
+An inverted index maps words to the rows that contain them.
+
+```text
+github  -> chunk 1, chunk 8
+deploy  -> chunk 1, chunk 3, chunk 9
+action  -> chunk 1, chunk 4
+```
+
+This makes keyword search much faster than scanning every chunk.
+
 ## Prompt Engineering
 
 Prompt engineering means writing instructions that guide the LLM.
@@ -427,7 +599,7 @@ Extra improvements for later:
 | --- | --- |
 | Tune `top_k` | Balances context quality and prompt size |
 | Use cosine distance for text | Common for semantic search |
-| Add metadata filters later | Improves enterprise use cases |
+| Metadata filters by document ID or filename | Improves enterprise use cases |
 | Monitor low-quality matches | Helps improve chunking/indexing |
 
 ### Security and Governance

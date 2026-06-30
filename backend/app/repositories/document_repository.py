@@ -1,5 +1,3 @@
-import os
-
 from sqlalchemy.orm import Session
 
 def save_document(db: Session, document):

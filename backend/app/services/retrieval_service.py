@@ -1,7 +1,8 @@
 from sqlalchemy.orm import Session
 
-from app.repositories.chunk_repository import search_similar_chunks
+from app.repositories.chunk_repository import search_similar_chunks, keyword_search_chunks
 from app.services.embedding_service import generate_embedding
+from app.services.hybrid_search_service import hybrid_merge
 from app.services.llm_service import ask_llama
 
 
@@ -42,12 +43,28 @@ Question:
 """
 
 
-def search_documents(query: str, top_k: int, db: Session):
+def search_documents(query: str, top_k: int, db: Session, document_id=None, filename=None, ):
     query_embedding = generate_embedding(query)
 
-    results = search_similar_chunks(
+    vector_results = search_similar_chunks(
         db=db,
         query_embedding=query_embedding,
+        document_id=document_id,
+        filename=filename,
+        top_k=top_k,
+    )
+
+    keyword_results = keyword_search_chunks(
+        db=db,
+        query=query,
+        document_id=document_id,
+        filename=filename,
+        top_k=top_k,
+    )
+
+    results = hybrid_merge(
+        vector_results=vector_results,
+        keyword_results=keyword_results,
         top_k=top_k,
     )
 
@@ -56,12 +73,14 @@ def search_documents(query: str, top_k: int, db: Session):
         "top_k": top_k,
         "results": [
             {
-                "chunk_id": str(row["id"]),
+                "chunk_id": row["chunk_id"],
                 "document_id": str(row["document_id"]),
                 "filename": row["filename"],
                 "chunk_index": row["chunk_index"],
                 "chunk_text": row["chunk_text"],
-                "distance": float(row["distance"]),
+                "hybrid_score": row["hybrid_score"],
+                "vector_score": row["vector_score"],
+                "keyword_score": row["keyword_score"],
                 "chunk_metadata": row["chunk_metadata"],
             }
             for row in results
@@ -69,12 +88,14 @@ def search_documents(query: str, top_k: int, db: Session):
     }
 
 
-def chat(query: str, top_k: int, db: Session):
+def chat(query: str, top_k: int, db: Session, document_id=None, filename=None):
     query_embedding = generate_embedding(query)
 
     received_chunks = search_similar_chunks(
         db=db,
         query_embedding=query_embedding,
+        document_id=document_id,
+        filename=filename,
         top_k=top_k,
     )
 

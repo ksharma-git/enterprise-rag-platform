@@ -8,7 +8,7 @@ from pypdf import PdfReader
 from app.config import ALLOWED_EXTENSIONS, CHUNK_OVERLAP, CHUNK_SIZE
 from app.models import Document, DocumentChunk
 from app.repositories.chunk_repository import list_chunks as list_chunks_repository
-from app.repositories.chunk_repository import save_document_chunks
+from app.repositories.chunk_repository import save_document_chunks, update_chunk_search_vectors
 from app.repositories.document_repository import delete_document as delete_document_repository
 from app.repositories.document_repository import list_documents as list_documents_repository
 from app.repositories.document_repository import save_document
@@ -116,6 +116,8 @@ def upload_document(file: UploadFile, uploaded_by: str, db: Session):
         chunk_records.append(chunk_record)
 
     saved_chunks = save_document_chunks(db, chunk_records)
+
+    update_chunk_search_vectors(db)
 
     return {
         "message": "Document uploaded successfully",
