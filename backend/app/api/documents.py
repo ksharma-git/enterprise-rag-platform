@@ -44,4 +44,4 @@ def search_documents(
     request: SearchRequest,
     db: Session = Depends(get_db),
 ):
-    return search_documents_service(request.query, request.top_k, db)
+    return search_documents_service(request.query, request.top_k, db, request.document_id, request.filename)

@@ -13,4 +13,4 @@ def chat(
     request: ChatRequest,
     db: Session = Depends(get_db),
 ):
-    return chat_service(request.query, request.top_k, db)
+    return chat_service(request.query, request.top_k, db, request.document_id, request.filename)

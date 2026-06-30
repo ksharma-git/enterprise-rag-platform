@@ -43,18 +43,22 @@ Question:
 """
 
 
-def search_documents(query: str, top_k: int, db: Session):
+def search_documents(query: str, top_k: int, db: Session, document_id=None, filename=None, ):
     query_embedding = generate_embedding(query)
 
     vector_results = search_similar_chunks(
         db=db,
         query_embedding=query_embedding,
+        document_id=document_id,
+        filename=filename,
         top_k=top_k,
     )
 
     keyword_results = keyword_search_chunks(
         db=db,
         query=query,
+        document_id=document_id,
+        filename=filename,
         top_k=top_k,
     )
 
@@ -84,12 +88,14 @@ def search_documents(query: str, top_k: int, db: Session):
     }
 
 
-def chat(query: str, top_k: int, db: Session):
+def chat(query: str, top_k: int, db: Session, document_id=None, filename=None):
     query_embedding = generate_embedding(query)
 
     received_chunks = search_similar_chunks(
         db=db,
         query_embedding=query_embedding,
+        document_id=document_id,
+        filename=filename,
         top_k=top_k,
     )
 

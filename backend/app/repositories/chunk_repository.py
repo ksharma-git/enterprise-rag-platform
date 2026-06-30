@@ -22,7 +22,7 @@ def list_chunks(db: Session, document_model, chunk_model):
     )
 
 
-def search_similar_chunks(db: Session, query_embedding: list[float], top_k: int = 5):
+def search_similar_chunks(db: Session, query_embedding: list[float], document_id=None, filename=None, top_k: int = 5):
     sql = text("""
         SELECT
             dc.id,
@@ -35,6 +35,8 @@ def search_similar_chunks(db: Session, query_embedding: list[float], top_k: int 
         FROM document_chunks dc
         JOIN documents d ON d.id = dc.document_id
         WHERE dc.embedding IS NOT NULL
+        AND (:document_id IS NULL OR dc.document_id = CAST(:document_id AS uuid))
+        AND (:filename IS NULL OR d.filename = :filename)
         ORDER BY dc.embedding <=> CAST(:query_embedding AS vector)
         LIMIT :top_k
     """)
@@ -43,6 +45,8 @@ def search_similar_chunks(db: Session, query_embedding: list[float], top_k: int 
         sql,
         {
             "query_embedding": query_embedding,
+            "document_id": document_id,
+            "filename": filename,
             "top_k": top_k,
         },
     )
@@ -59,7 +63,7 @@ def update_chunk_search_vector(db: Session) -> None:
     )
     db.commit()
 
-def keyword_search_chunks(db: Session, query: str, top_k: int = 5):
+def keyword_search_chunks(db: Session, query: str, document_id=None, filename=None, top_k: int = 5):
     sql = text("""
            SELECT
                dc.id,
@@ -72,6 +76,8 @@ def keyword_search_chunks(db: Session, query: str, top_k: int = 5):
            FROM document_chunks dc
            JOIN documents d ON d.id = dc.document_id
            WHERE dc.search_vector @@ plainto_tsquery('english', :query)
+           AND (:document_id IS NULL OR dc.document_id = CAST(:document_id AS uuid))
+           AND (:filename IS NULL OR d.filename = :filename)
            ORDER BY keyword_score DESC
            LIMIT :top_k
        """)
@@ -80,6 +86,8 @@ def keyword_search_chunks(db: Session, query: str, top_k: int = 5):
         sql,
         {
             "query": query,
+            "document_id": document_id,
+            "filename": filename,
             "top_k": top_k,
         },
     )
