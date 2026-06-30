@@ -28,6 +28,15 @@ st.markdown(
 st.title("Enterprise RAG Platform")
 st.caption(f"API: {API_URL}")
 
+
+def build_query_payload(query, top_k, document_id, filename):
+    payload = {"query": query, "top_k": int(top_k)}
+    if document_id.strip():
+        payload["document_id"] = document_id.strip()
+    if filename.strip():
+        payload["filename"] = filename.strip()
+    return payload
+
 upload_tab, chat_tab, search_tab, documents_tab, chunks_tab = st.tabs([
     "Upload File",
     "Chat",
@@ -59,15 +68,9 @@ with chat_tab:
     filename = col3.text_input("Filename", key="chat_filename")
 
     if st.button("Ask", disabled=not query.strip()):
-        payload = {"query": query, "top_k": int(top_k)}
-        if document_id.strip():
-            payload["document_id"] = document_id.strip()
-        if filename.strip():
-            payload["filename"] = filename.strip()
-
         response = requests.post(
             f"{API_URL}/chat",
-            json=payload,
+            json=build_query_payload(query, top_k, document_id, filename),
             timeout=180,
         )
 
@@ -88,13 +91,11 @@ with search_tab:
     search_filename = col3.text_input("Filename", key="search_filename")
 
     if st.button("Search", disabled=not search_query.strip()):
-        payload = {"query": search_query, "top_k": int(search_top_k)}
-        if search_document_id.strip():
-            payload["document_id"] = search_document_id.strip()
-        if search_filename.strip():
-            payload["filename"] = search_filename.strip()
-
-        response = requests.post(f"{API_URL}/search", json=payload, timeout=120)
+        response = requests.post(
+            f"{API_URL}/search",
+            json=build_query_payload(search_query, search_top_k, search_document_id, search_filename),
+            timeout=120,
+        )
 
         if response.ok:
             st.dataframe(response.json().get("results", []), use_container_width=True)

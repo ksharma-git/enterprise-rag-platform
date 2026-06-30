@@ -121,7 +121,7 @@ Model runtime: Ollama
 | `GET` | `/documents` | List uploaded documents |
 | `DELETE` | `/documents/{document_id}` | Delete a document and its chunks |
 | `GET` | `/chunks` | List stored chunks |
-| `POST` | `/search` | Vector search over chunks |
+| `POST` | `/search` | Hybrid vector + keyword search over chunks |
 | `POST` | `/chat` | RAG chat answer with citations |
 
 ## Document Upload Flow
@@ -300,7 +300,7 @@ Purpose:
 
 ## Search Flow
 
-The `/search` endpoint returns relevant chunks but does not ask the LLM to generate an answer.
+The `/search` endpoint returns relevant chunks but does not ask the LLM to generate an answer. It supports optional metadata filters by `document_id` and `filename`.
 
 ```text
 POST /search
@@ -315,6 +315,10 @@ retrieval_service.search_documents()
         |
         +--> chunk_repository.search_similar_chunks()
         |
+        +--> chunk_repository.keyword_search_chunks()
+        |
+        +--> hybrid_search_service.hybrid_merge()
+        |
         v
 Top matching chunks
 ```
@@ -325,7 +329,7 @@ Search SQL uses pgvector distance:
 dc.embedding <=> CAST(:query_embedding AS vector) AS distance
 ```
 
-Lower distance means a closer semantic match.
+Lower distance means a closer semantic match. Hybrid search combines vector similarity with keyword score.
 
 ## Chat Flow
 
@@ -521,7 +525,7 @@ document_chunks are deleted by ON DELETE CASCADE
 | `GET /documents` | `api/documents.py` | `document_service.list_documents()` | `list_documents()` |
 | `DELETE /documents/{id}` | `api/documents.py` | `document_service.delete_document()` | `delete_document()` |
 | `GET /chunks` | `api/documents.py` | `document_service.list_chunks()` | `list_chunks()` |
-| `POST /search` | `api/documents.py` | `retrieval_service.search_documents()` | `search_similar_chunks()` |
+| `POST /search` | `api/documents.py` | `retrieval_service.search_documents()` | `search_similar_chunks()`, `keyword_search_chunks()` |
 | `POST /chat` | `api/chat.py` | `retrieval_service.chat()` | `search_similar_chunks()` |
 
 ## Data Flow Summary

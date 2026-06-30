@@ -1,5 +1,3 @@
-import os
-
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
@@ -53,7 +51,7 @@ def search_similar_chunks(db: Session, query_embedding: list[float], document_id
 
     return result.mappings().all()
 
-def update_chunk_search_vector(db: Session) -> None:
+def update_chunk_search_vectors(db: Session) -> None:
     db.execute(
         text("""
             UPDATE document_chunks

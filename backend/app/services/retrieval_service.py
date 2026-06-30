@@ -2,8 +2,8 @@ from sqlalchemy.orm import Session
 
 from app.repositories.chunk_repository import search_similar_chunks, keyword_search_chunks
 from app.services.embedding_service import generate_embedding
+from app.services.hybrid_search_service import hybrid_merge
 from app.services.llm_service import ask_llama
-from app.services.vector_store_service import hybrid_merge
 
 
 def build_context(chunks):

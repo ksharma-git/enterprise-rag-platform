@@ -119,7 +119,9 @@ curl -s -X POST "http://localhost:8000/search" \
   -H "Content-Type: application/json" \
   -d '{
     "query": "What is the document about?",
-    "top_k": 3
+    "top_k": 3,
+    "document_id": null,
+    "filename": null
   }' | jq
 ```
 
@@ -130,7 +132,9 @@ curl -s -X POST "http://localhost:8000/chat" \
   -H "Content-Type: application/json" \
   -d '{
     "query": "What is the story about?",
-    "top_k": 3
+    "top_k": 3,
+    "document_id": null,
+    "filename": null
   }' | jq
 ```
 

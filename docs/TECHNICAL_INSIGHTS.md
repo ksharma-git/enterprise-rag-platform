@@ -427,7 +427,7 @@ Extra improvements for later:
 | --- | --- |
 | Tune `top_k` | Balances context quality and prompt size |
 | Use cosine distance for text | Common for semantic search |
-| Add metadata filters later | Improves enterprise use cases |
+| Metadata filters by document ID or filename | Improves enterprise use cases |
 | Monitor low-quality matches | Helps improve chunking/indexing |
 
 ### Security and Governance
