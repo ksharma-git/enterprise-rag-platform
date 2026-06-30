@@ -331,6 +331,106 @@ dc.embedding <=> CAST(:query_embedding AS vector) AS distance
 
 Lower distance means a closer semantic match. Hybrid search combines vector similarity with keyword score.
 
+## Hybrid Search Architecture
+
+Hybrid search uses two retrieval signals:
+
+- **Vector search** for semantic meaning
+- **Keyword search** for exact terms, acronyms, product names, and error codes
+
+```text
+User Question
+        |
+        v
+        +--------------+
+        |              |
+        v              v
+Vector Search    Keyword Search
+        |              |
+        +------+-------+
+               |
+               v
+        Merge Results
+               |
+               v
+          Top K Chunks
+               |
+               v
+              LLM
+```
+
+Enterprise search systems commonly combine lexical and semantic retrieval before sending context to an LLM. Vector search helps with meaning. Keyword search helps with exact internal terminology.
+
+| Signal | Handles Well | Example |
+| --- | --- | --- |
+| Vector search | Similar meaning | `reset password` ~= `recover credentials` |
+| Keyword search | Exact terms | `AKS`, `SOC2`, `ERR_CONN_TIMEOUT`, `GitHub Actions` |
+| Hybrid search | Both | Better enterprise retrieval |
+
+The project uses a simple weighted merge:
+
+```text
+hybrid_score = vector_score * 0.7 + keyword_score * 0.3
+```
+
+Other valid merge strategies include:
+
+| Strategy | Use Case |
+| --- | --- |
+| Union + deduplication | Simplest approach |
+| Weighted scoring | Easy to understand and tune |
+| Reciprocal Rank Fusion, RRF | Common in production search systems |
+
+## Keyword Search Index
+
+Keyword search uses PostgreSQL full-text search.
+
+Each chunk gets a `search_vector` value:
+
+```sql
+UPDATE document_chunks
+SET search_vector = to_tsvector('english', chunk_text);
+```
+
+Example input:
+
+```text
+GitHub Actions deploys applications automatically.
+```
+
+`to_tsvector()` stores searchable terms similar to:
+
+```text
+'action':2
+'applic':4
+'automat':5
+'deploy':3
+'github':1
+```
+
+This includes:
+
+| Concept | Meaning |
+| --- | --- |
+| Stemming | Converts words to root-like forms, such as `deploys` -> `deploy` |
+| Stop words | Removes common words like `the`, `a`, `is`, `of`, `to` |
+
+The keyword index uses GIN:
+
+```sql
+CREATE INDEX IF NOT EXISTS document_chunks_search_idx
+ON document_chunks
+USING GIN (search_vector);
+```
+
+GIN means **Generalized Inverted Index**. It maps terms to rows that contain those terms, making keyword search fast.
+
+```text
+github  -> chunk 1, chunk 8
+deploy  -> chunk 1, chunk 3, chunk 9
+action  -> chunk 1, chunk 4
+```
+
 ## Chat Flow
 
 The `/chat` endpoint performs the full RAG flow.
@@ -525,7 +625,7 @@ document_chunks are deleted by ON DELETE CASCADE
 | `GET /documents` | `api/documents.py` | `document_service.list_documents()` | `list_documents()` |
 | `DELETE /documents/{id}` | `api/documents.py` | `document_service.delete_document()` | `delete_document()` |
 | `GET /chunks` | `api/documents.py` | `document_service.list_chunks()` | `list_chunks()` |
-| `POST /search` | `api/documents.py` | `retrieval_service.search_documents()` | `search_similar_chunks()`, `keyword_search_chunks()` |
+| `POST /search` | `api/documents.py` | `retrieval_service.search_documents()`, `hybrid_search_service.hybrid_merge()` | `search_similar_chunks()`, `keyword_search_chunks()` |
 | `POST /chat` | `api/chat.py` | `retrieval_service.chat()` | `search_similar_chunks()` |
 
 ## Data Flow Summary

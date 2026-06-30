@@ -2,6 +2,23 @@
 
 Enterprise RAG Platform is a local retrieval-augmented generation API for uploading documents, generating embeddings, searching relevant chunks, and answering questions with Ollama.
 
+## Roadmap
+
+### Version 1.0
+
+- Document Upload
+- Text Extraction
+- Chunking
+- Embeddings
+- PostgreSQL + pgvector
+- Vector Search
+- Chat
+
+### Version 1.1
+
+- Hybrid Search
+- Metadata Filtering
+
 ## Project Structure
 
 ```text
