@@ -7,8 +7,9 @@ load_dotenv()
 
 DATABASE_URL = os.getenv("DATABASE_URL")
 
-OLLAMA_EMBEDDING_URL = "http://localhost:11434/api/embeddings"
-OLLAMA_GENERATE_URL = "http://localhost:11434/api/generate"
+OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
+OLLAMA_EMBEDDING_URL = f"{OLLAMA_BASE_URL}/api/embeddings"
+OLLAMA_GENERATE_URL = f"{OLLAMA_BASE_URL}/api/generate"
 
 EMBEDDING_MODEL = "nomic-embed-text"
 LLM_MODEL = "llama3.2"

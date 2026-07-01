@@ -10,6 +10,38 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - ./db/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d enterprise_rag"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend-rag-app:
+    build:
+      context: ./backend
+    container_name: enterprise-rag-backend
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/enterprise_rag
+      OLLAMA_BASE_URL: http://host.docker.internal:11434
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./backend/uploads:/app/uploads
+
+  frontend-ui-app:
+    build:
+      context: ./frontend
+    container_name: enterprise-rag-streamlit
+    environment:
+      BACKEND_API_URL: http://backend-rag-app:8000
+    ports:
+      - "8501:8501"
+    depends_on:
+      - backend-rag-app
 
 volumes:
   postgres_data:
