@@ -3,12 +3,7 @@ import os
 import requests
 import streamlit as st
 
-API_URL = os.getenv("BACKEND_API_URL", "http://localhost:8000")
-API_URLS = list(dict.fromkeys([
-    API_URL.rstrip("/"),
-    "http://backend-rag-app:8000",
-    "http://localhost:8000",
-]))
+API_URL = os.getenv("BACKEND_API_URL", "http://localhost:8000").rstrip("/")
 PAGE_OPTIONS = ["Dashboard", "Documents", "Chunks", "Chat", "Search"]
 PAGE_ICONS = {
     "Dashboard": "🏠",
@@ -247,27 +242,15 @@ def citation_title(citation, index):
 def safe_request(method, url, **kwargs):
     """Wrap requests calls so network/timeout errors surface as UI messages
     instead of uncaught exceptions."""
-    request_urls = [url]
-
-    if url.startswith(API_URL.rstrip("/")):
-        path = url.removeprefix(API_URL.rstrip("/"))
-        request_urls = [f"{base_url}{path}" for base_url in API_URLS]
-
-    last_error = None
-    for request_url in request_urls:
-        try:
-            response = requests.request(method, request_url, **kwargs)
-            return response, None
-        except (requests.exceptions.ConnectionError, requests.exceptions.Timeout) as exc:
-            last_error = exc
-            continue
-        except requests.exceptions.RequestException as exc:
-            return None, f"Request failed: {exc}"
-
-    if isinstance(last_error, requests.exceptions.Timeout):
+    try:
+        response = requests.request(method, url, **kwargs)
+        return response, None
+    except requests.exceptions.ConnectionError:
+        return None, "Could not connect to the backend. Is the API running?"
+    except requests.exceptions.Timeout:
         return None, "The request timed out. The backend may be under heavy load."
-
-    return None, "Could not connect to the backend. Is the API running?"
+    except requests.exceptions.RequestException as exc:
+        return None, f"Request failed: {exc}"
 
 
 def render_empty_state(message):
