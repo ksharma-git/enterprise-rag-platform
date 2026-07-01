@@ -119,6 +119,7 @@ def chat(query: str, top_k: int, db: Session, document_id=None, filename=None):
             "filename": chunk["filename"],
             "chunk_index": chunk["chunk_index"],
             "distance": float(chunk["distance"]),
+            "chunk_text": chunk["chunk_text"],
         }
         for chunk in received_chunks
     ]
