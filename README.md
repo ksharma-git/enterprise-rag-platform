@@ -62,24 +62,68 @@ pip install -r backend/requirements.txt
 pip install -r frontend/requirements.txt
 ```
 
-## Database Setup
+## Docker Compose
 
-Start the services defined in `docker-compose.yml`:
+Docker Compose starts Postgres, the FastAPI backend, and the Streamlit frontend. On a fresh Postgres volume, `db/schema.sql` initializes the schema, pgvector extension, and indexes.
+
+If the Postgres volume already exists, init scripts will not run again. To recreate the local database from `db/schema.sql`, stop services and remove volumes:
 
 ```bash
-docker compose up -d
+docker compose down -v
 ```
 
-Enable the `vector` extension in the local Postgres database:
+Build and start all services:
 
 ```bash
-docker exec -it enterprise-rag-postgres psql -U postgres -d enterprise_rag -c "CREATE EXTENSION IF NOT EXISTS vector;"
+docker compose up --build
+```
+
+Run all services in the background:
+
+```bash
+docker compose up -d --build
+```
+
+View running containers:
+
+```bash
+docker compose ps
+```
+
+View service logs:
+
+```bash
+docker compose logs -f
+```
+
+Execute a shell inside the backend container:
+
+```bash
+docker compose exec backend-rag-app sh
+```
+
+Execute a SQL command inside Postgres:
+
+```bash
+docker compose exec postgres psql -U postgres -d enterprise_rag
 ```
 
 Verify installed extensions:
 
 ```bash
-docker exec -it enterprise-rag-postgres psql -U postgres -d enterprise_rag -c "\\dx"
+docker compose exec postgres psql -U postgres -d enterprise_rag -c "\\dx"
+```
+
+Stop all services:
+
+```bash
+docker compose stop
+```
+
+Stop and remove containers:
+
+```bash
+docker compose down
 ```
 
 ## Ollama Setup
