@@ -85,6 +85,12 @@ POST /chat
   -> build RAG context and prompt
   -> generate answer with llama3.2
   -> return answer with citations
+
+POST /chat/stream
+  -> generate query embedding
+  -> search similar chunks in pgvector
+  -> build RAG context and prompt
+  -> stream the llama3.2 answer as plain text
 ```
 
 ## Run Application
@@ -151,6 +157,21 @@ curl -s -X POST "http://localhost:8000/chat" \
     "document_id": null,
     "filename": null
   }' | jq
+```
+
+## Chat Stream
+
+Use `/chat/stream` when the UI should render the answer as it is generated. The response is streamed as `text/plain` and does not include citations in the response body.
+
+```bash
+curl -N -X POST "http://localhost:8000/chat/stream" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "What is the story about?",
+    "top_k": 3,
+    "document_id": null,
+    "filename": null
+  }'
 ```
 
 ## DB Queries
