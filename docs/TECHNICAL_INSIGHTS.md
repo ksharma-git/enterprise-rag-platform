@@ -161,9 +161,12 @@ Large document
 This project uses:
 
 | Setting | Value |
-| --- | ---: |
+| --- | --- |
+| Chunking strategy | `paragraph_aware` |
 | Chunk size | 1000 characters |
 | Chunk overlap | 150 characters |
+
+The default strategy tries to keep paragraphs together. If a paragraph is too large, it splits that paragraph by sentences and keeps overlap between chunks.
 
 Overlap means the end of one chunk is repeated at the start of the next chunk. This helps avoid losing context at chunk boundaries.
 
@@ -173,6 +176,8 @@ Chunk 2:          [important sentence starts here...............]
 ```
 
 Good chunking improves retrieval quality. Bad chunking can cause incomplete or irrelevant answers.
+
+The code also supports a simpler `fixed` strategy, which splits text by character ranges only.
 
 ## Vector Databases
 

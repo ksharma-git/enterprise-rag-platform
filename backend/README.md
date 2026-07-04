@@ -9,6 +9,8 @@ backend/
 ├── app/
 │   ├── api/                   FastAPI routes
 │   ├── services/              Business workflows and AI integrations
+│   │   ├── chunking_service.py
+│   │   └── document_service.py
 │   ├── repositories/          Database operations
 │   ├── utils/                 Small helper functions
 │   ├── main.py                FastAPI app setup
@@ -35,6 +37,7 @@ backend/app/
 │   ├── documents.py
 │   └── chat.py
 ├── services/
+│   ├── chunking_service.py
 │   ├── document_service.py
 │   ├── embedding_service.py
 │   ├── retrieval_service.py
@@ -54,10 +57,24 @@ Document upload:
 POST /documents/upload
   -> save uploaded file
   -> extract text
-  -> split text into chunks
+  -> split text into paragraph-aware chunks
   -> generate embeddings with nomic-embed-text
   -> store document and chunks in Postgres/pgvector
 ```
+
+## Chunking Strategy
+
+Document text is chunked with the default `paragraph_aware` strategy.
+
+Current settings:
+
+| Setting | Value |
+| --- | --- |
+| Strategy | `paragraph_aware` |
+| Chunk size | 1000 characters |
+| Overlap | 150 characters |
+
+The paragraph-aware strategy keeps paragraphs together when they fit within the chunk size. If a paragraph is longer than the configured chunk size, it is split by sentences with overlap. The older fixed-size character chunking behavior is still available in code as the `fixed` strategy.
 
 Chat:
 

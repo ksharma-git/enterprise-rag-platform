@@ -5,13 +5,14 @@ from fastapi import HTTPException, UploadFile
 from sqlalchemy.orm import Session
 from pypdf import PdfReader
 
-from app.config import ALLOWED_EXTENSIONS, CHUNK_OVERLAP, CHUNK_SIZE
+from app.config import ALLOWED_EXTENSIONS, CHUNK_OVERLAP, CHUNK_SIZE, CHUNK_STRATEGY
 from app.models import Document, DocumentChunk
 from app.repositories.chunk_repository import list_chunks as list_chunks_repository
 from app.repositories.chunk_repository import save_document_chunks, update_chunk_search_vectors
 from app.repositories.document_repository import delete_document as delete_document_repository
 from app.repositories.document_repository import list_documents as list_documents_repository
 from app.repositories.document_repository import save_document
+from app.services.chunking_service import fixed_chunk, paragraph_aware_chunk
 from app.services.embedding_service import generate_embedding
 from app.utils.file_store import save_uploaded_file
 
@@ -52,25 +53,27 @@ def extract_text_from_file(file_path: Path) -> str:
 
     raise HTTPException(status_code=400, detail="Unsupported file type")
 
-def chunk_text(text: str, chunk_size: int = CHUNK_SIZE, overlap: int = CHUNK_OVERLAP) -> list[str]:
-    text = text.strip()
+def chunk_text(
+    text: str,
+    chunk_size: int = CHUNK_SIZE,
+    overlap: int = CHUNK_OVERLAP,
+    strategy: str = CHUNK_STRATEGY,
+) -> list[str]:
+    if chunk_size <= 0:
+        raise ValueError("chunk_size must be greater than 0")
 
-    if not text:
-        return []
+    if overlap < 0 or overlap >= chunk_size:
+        raise ValueError(
+            "overlap must be greater than or equal to 0 and less than chunk_size"
+        )
 
-    chunks = []
-    start = 0
+    if strategy == "fixed":
+        return fixed_chunk(text, chunk_size, overlap)
 
-    while start < len(text):
-        end = start + chunk_size
-        chunk = text[start:end].strip()
+    if strategy == "paragraph_aware":
+        return paragraph_aware_chunk(text, chunk_size, overlap)
 
-        if chunk:
-            chunks.append(chunk)
-
-        start = end - overlap
-
-    return chunks
+    raise ValueError(f"Unsupported chunking strategy: {strategy}")
 
 
 def upload_document(file: UploadFile, uploaded_by: str, db: Session):
@@ -110,6 +113,9 @@ def upload_document(file: UploadFile, uploaded_by: str, db: Session):
             chunk_metadata={
                 "filename": saved_document.filename,
                 "source_type": saved_document.source_type,
+                "chunk_strategy": CHUNK_STRATEGY,
+                "chunk_size": CHUNK_SIZE,
+                "overlap": CHUNK_OVERLAP,
             },
         )
 

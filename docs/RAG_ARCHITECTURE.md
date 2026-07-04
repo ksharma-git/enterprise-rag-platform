@@ -58,6 +58,7 @@ enterprise-rag-platform/
 │   │   │   ├── documents.py
 │   │   │   └── chat.py
 │   │   ├── services/
+│   │   │   ├── chunking_service.py
 │   │   │   ├── document_service.py
 │   │   │   ├── embedding_service.py
 │   │   │   ├── llm_service.py
@@ -90,6 +91,7 @@ enterprise-rag-platform/
 | `app/api/health.py` | Health endpoint |
 | `app/api/documents.py` | Document, chunk, upload, search API routes |
 | `app/api/chat.py` | Chat API route |
+| `app/services/chunking_service.py` | Fixed and paragraph-aware chunking helpers |
 | `app/services/document_service.py` | Upload workflow, extraction, chunking, document listing, delete |
 | `app/services/embedding_service.py` | Calls Ollama embedding API |
 | `app/services/retrieval_service.py` | Vector search workflow, context building, prompt building, chat workflow |
@@ -175,7 +177,7 @@ Document Service
  | validate file extension          |
  | save file to uploads/            |
  | extract text                     |
- | split text into chunks           |
+ | split text into paragraph chunks |
  +----------------------------------+
  |
  | for each chunk
@@ -218,19 +220,30 @@ Chunking happens in `document_service.chunk_text()`.
 Current settings:
 
 | Setting | Value |
-| --- | ---: |
+| --- | --- |
+| Strategy | `paragraph_aware` |
 | Chunk size | 1000 characters |
 | Overlap | 150 characters |
 
 ```text
 Document text
    |
-   +-- chunk 0: chars 0-1000
-   +-- chunk 1: chars 850-1850
-   +-- chunk 2: chars 1700-2700
+   +-- paragraph-aware chunk 0
+   +-- paragraph-aware chunk 1
+   +-- paragraph-aware chunk 2
 ```
 
-Overlap helps preserve context across chunk boundaries.
+The default `paragraph_aware` strategy keeps paragraphs together when they fit within the configured chunk size. Paragraphs longer than the chunk size are split by sentences with overlap.
+
+The code also keeps a `fixed` strategy for simple character-window chunking:
+
+```text
+chunk 0: chars 0-1000
+chunk 1: chars 850-1850
+chunk 2: chars 1700-2700
+```
+
+Overlap helps preserve context across chunk boundaries. Each stored chunk includes metadata for `chunk_strategy`, `chunk_size`, and `overlap`.
 
 ## Embedding Generation
 
