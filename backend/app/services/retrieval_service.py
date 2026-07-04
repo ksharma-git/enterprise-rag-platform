@@ -1,9 +1,12 @@
 from sqlalchemy.orm import Session
+from fastapi.responses import StreamingResponse
 
 from app.repositories.chunk_repository import search_similar_chunks, keyword_search_chunks
 from app.services.embedding_service import generate_embedding
 from app.services.hybrid_search_service import hybrid_merge
-from app.services.llm_service import ask_llama
+from app.services.llm_service import ask_llama, ask_llama_stream
+
+NO_CONTEXT_ANSWER = "I could not find any relevant information in the uploaded documents."
 
 
 def build_context(chunks):
@@ -102,7 +105,7 @@ def chat(query: str, top_k: int, db: Session, document_id=None, filename=None):
     if not received_chunks:
         return {
             "question": query,
-            "answer": "I could not find any relevant information in the uploaded documents.",
+            "answer": NO_CONTEXT_ANSWER,
             "citations": [],
         }
 
@@ -129,3 +132,30 @@ def chat(query: str, top_k: int, db: Session, document_id=None, filename=None):
         "answer": answer,
         "citations": citations,
     }
+
+def chat_stream(query: str, top_k: int, db: Session, document_id=None, filename=None):
+    query_embedding = generate_embedding(query)
+
+    received_chunks = search_similar_chunks(
+        db=db,
+        query_embedding=query_embedding,
+        document_id=document_id,
+        filename=filename,
+        top_k=top_k,
+    )
+
+    def token_generator():
+        if not received_chunks:
+            yield NO_CONTEXT_ANSWER
+            return
+
+        context = build_context(received_chunks)
+        prompt = build_prompt(query, context)
+
+        for token in ask_llama_stream(prompt):
+            yield token
+
+    return StreamingResponse(
+        token_generator(),
+        media_type="text/plain",
+    )

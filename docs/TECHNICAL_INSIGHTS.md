@@ -352,6 +352,17 @@ Example search result:
 
 The backend then sends those chunks to the LLM as context.
 
+## Chat vs Streaming Chat
+
+The project supports two chat response styles:
+
+| Endpoint | Response | Best For |
+| --- | --- | --- |
+| `/chat` | JSON answer with citations | Reviewable answers with source details |
+| `/chat/stream` | Plain text stream | Faster-feeling UI while the model is generating |
+
+Both endpoints use the same retrieval and prompt-building pattern. The streaming endpoint sends answer text incrementally and does not include citations in the streamed response body.
+
 ## Hybrid Search
 
 Hybrid search combines semantic vector search with keyword search.

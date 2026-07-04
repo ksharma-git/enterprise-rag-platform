@@ -125,6 +125,7 @@ Model runtime: Ollama
 | `GET` | `/chunks` | List stored chunks |
 | `POST` | `/search` | Hybrid vector + keyword search over chunks |
 | `POST` | `/chat` | RAG chat answer with citations |
+| `POST` | `/chat/stream` | RAG chat answer streamed as plain text |
 
 ## Document Upload Flow
 
@@ -446,7 +447,7 @@ action  -> chunk 1, chunk 4
 
 ## Chat Flow
 
-The `/chat` endpoint performs the full RAG flow.
+The `/chat` endpoint performs the full RAG flow and returns a JSON response with citations.
 
 ```text
 POST /chat
@@ -472,6 +473,35 @@ retrieval_service.chat()
    v
 Answer + citations
 ```
+
+## Chat Stream Flow
+
+The `/chat/stream` endpoint uses the same retrieval and prompt-building flow as `/chat`, then streams the LLM response as `text/plain`.
+
+```text
+POST /chat/stream
+   |
+   v
+api/chat.py
+   |
+   v
+retrieval_service.chat_stream()
+   |
+   +--> generate query embedding
+   |
+   +--> search similar chunks in pgvector
+   |
+   +--> build context from chunks
+   |
+   +--> build prompt
+   |
+   +--> stream llama3.2 tokens through Ollama
+   |
+   v
+Plain text response stream
+```
+
+The Streamlit frontend exposes this through the `Chat Stream` tab. Use the regular `Chat` tab when citations are needed in the response. Use `Chat Stream` when the answer should appear incrementally while the model is generating it.
 
 ### Chat Sequence Diagram
 

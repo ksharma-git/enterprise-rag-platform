@@ -4,12 +4,13 @@ import requests
 import streamlit as st
 
 API_URL = os.getenv("BACKEND_API_URL", "http://localhost:8000").rstrip("/")
-PAGE_OPTIONS = ["Dashboard", "Documents", "Chunks", "Chat", "Search"]
+PAGE_OPTIONS = ["Dashboard", "Documents", "Chunks", "Chat", "Chat Stream", "Search"]
 PAGE_ICONS = {
     "Dashboard": "🏠",
     "Documents": "📄",
     "Chunks": "🧩",
     "Chat": "💬",
+    "Chat Stream": "▶️",
     "Search": "🔎",
 }
 
@@ -331,6 +332,7 @@ def render_dashboard():
         ("📚", "Documents Library", "Review uploaded documents and remove documents when needed.", "Documents", "Open Library"),
         ("🧩", "Chunk Explorer", "Inspect extracted chunks stored for retrieval and generation.", "Chunks", "Open Chunks"),
         ("💬", "Chat Assistant", "Ask questions and review source citations used in each answer.", "Chat", "Open Chat"),
+        ("▶️", "Chat Stream", "Ask questions and watch the answer render as it arrives.", "Chat Stream", "Open Stream"),
         ("🔎", "Search", "Run hybrid retrieval with optional document and filename filters.", "Search", "Open Search"),
     ]
 
@@ -469,6 +471,48 @@ def render_chat():
             st.error(f"Request failed ({response.status_code}): {response.text}")
 
 
+def stream_answer(payload):
+    with requests.post(f"{API_URL}/chat/stream", json=payload, stream=True, timeout=180) as response:
+        response.raise_for_status()
+        for chunk in response.iter_content(chunk_size=None, decode_unicode=True):
+            if chunk:
+                yield chunk
+
+
+def render_chat_stream():
+    page_header("Assistant", "Chat Stream", "Ask questions and stream the answer as it is generated.")
+
+    query = st.text_area(
+        "Question",
+        height=120,
+        placeholder="e.g. Summarize the uploaded policy document",
+        key="stream_query",
+    )
+    col1, col2, col3 = st.columns(3)
+    top_k = col1.number_input("Top K", min_value=1, max_value=20, value=3, key="stream_top_k")
+    document_id = col2.text_input("Document ID (optional)", key="stream_document_id")
+    filename = col3.text_input("Filename (optional)", key="stream_filename")
+
+    if st.button("Stream Answer", disabled=not query.strip(), use_container_width=True, type="primary"):
+        payload = build_query_payload(query, top_k, document_id, filename)
+        st.markdown('<hr class="section-divider" />', unsafe_allow_html=True)
+        st.subheader("Answer")
+
+        try:
+            st.write_stream(stream_answer(payload))
+        except requests.exceptions.ConnectionError:
+            st.error("Could not connect to the backend. Is the API running?")
+        except requests.exceptions.Timeout:
+            st.error("The request timed out. The backend may be under heavy load.")
+        except requests.exceptions.HTTPError as exc:
+            response = exc.response
+            detail = response.text if response is not None else str(exc)
+            status_code = response.status_code if response is not None else "unknown"
+            st.error(f"Stream failed ({status_code}): {detail}")
+        except requests.exceptions.RequestException as exc:
+            st.error(f"Stream failed: {exc}")
+
+
 def render_search():
     page_header("Assistant", "Search", "Run retrieval with optional metadata filters.")
 
@@ -529,5 +573,7 @@ elif st.session_state["page"] == "Chunks":
     render_chunks()
 elif st.session_state["page"] == "Chat":
     render_chat()
+elif st.session_state["page"] == "Chat Stream":
+    render_chat_stream()
 else:
     render_search()

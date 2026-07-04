@@ -13,6 +13,7 @@ Enterprise RAG Platform is a local retrieval-augmented generation API for upload
 - PostgreSQL + pgvector
 - Vector Search
 - Chat
+- Streaming Chat UI
 
 ### Version 1.1
 
