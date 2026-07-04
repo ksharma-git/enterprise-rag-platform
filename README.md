@@ -8,7 +8,7 @@ Enterprise RAG Platform is a local retrieval-augmented generation API for upload
 
 - Document Upload
 - Text Extraction
-- Chunking
+- Paragraph-aware Chunking
 - Embeddings
 - PostgreSQL + pgvector
 - Vector Search

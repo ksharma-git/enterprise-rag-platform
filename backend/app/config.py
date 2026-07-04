@@ -14,6 +14,8 @@ OLLAMA_GENERATE_URL = f"{OLLAMA_BASE_URL}/api/generate"
 EMBEDDING_MODEL = "nomic-embed-text"
 LLM_MODEL = "llama3.2"
 
+CHUNK_STRATEGY = "paragraph_aware"
+
 ALLOWED_EXTENSIONS = {".pdf", ".txt", ".md"}
 
 CHUNK_SIZE = 1000
