@@ -1,16 +1,14 @@
-from http.client import HTTPException
-from typing import Optional
-
+from fastapi import HTTPException
 from sqlalchemy.orm import Session
 from fastapi.responses import StreamingResponse
 
 from app.repositories.chunk_repository import search_similar_chunks, keyword_search_chunks
-from app.repositories.chat_repository import get_chat_session, get_recent_messages, create_chat_session, save_chat_message, list_chat_sessions, get_session_messages
+from app.repositories.chat_repository import get_chat_session, get_recent_messages, save_chat_message
 from app.services.embedding_service import generate_embedding
 from app.services.hybrid_search_service import hybrid_merge
 from app.services.llm_service import ask_llama, ask_llama_stream
 
-from backend.app.models import ChatSession
+from app.models import ChatSession
 from app.config import CHAT_ROLE_USER, CHAT_ROLE_ASSISTANT
 
 NO_CONTEXT_ANSWER = "I could not find any relevant information in the uploaded documents."
@@ -70,7 +68,7 @@ Answer:
 """
 
 
-def search_documents(query: str, top_k: int, db: Session, document_id=None, filename=None, ):
+def search_documents(query: str, top_k: int, db: Session, document_id=None, filename=None):
     query_embedding = generate_embedding(query)
 
     vector_results = search_similar_chunks(
@@ -115,7 +113,7 @@ def search_documents(query: str, top_k: int, db: Session, document_id=None, file
     }
 
 
-def chat(query: str, top_k: int, db: Session, document_id=None, filename=None, session_id: str):
+def chat(query: str, top_k: int, db: Session, session_id: str, document_id=None, filename=None):
     chat_session = get_chat_session_or_throw(db, session_id)
     save_chat_message(db, session_id, CHAT_ROLE_USER, query)
     recent_messages = get_recent_messages(
@@ -159,7 +157,7 @@ def chat(query: str, top_k: int, db: Session, document_id=None, filename=None, s
         "citations": citations,
     }
 
-def chat_stream(query: str, top_k: int, db: Session, document_id=None, filename=None, session_id: str):
+def chat_stream(query: str, top_k: int, db: Session, session_id: str, document_id=None, filename=None):
     chat_session = get_chat_session_or_throw(db, session_id)
 
     save_chat_message(db, session_id, CHAT_ROLE_USER, query)

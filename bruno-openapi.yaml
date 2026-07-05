@@ -1,0 +1,195 @@
+openapi: 3.0.3
+info:
+  title: Enterprise RAG Platform API
+  version: 1.0.0
+  description: Bruno import file for local Enterprise RAG Platform endpoints.
+servers:
+  - url: http://localhost:8000
+    description: Local backend
+paths:
+  /:
+    get:
+      summary: Health check
+      responses:
+        "200":
+          description: API health response
+
+  /documents/upload:
+    post:
+      summary: Upload document
+      parameters:
+        - name: uploaded_by
+          in: query
+          required: false
+          schema:
+            type: string
+            default: kamal
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - file
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        "200":
+          description: Upload response
+
+  /documents:
+    get:
+      summary: List documents
+      responses:
+        "200":
+          description: Document list
+
+  /documents/{document_id}:
+    delete:
+      summary: Delete document
+      parameters:
+        - name: document_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Delete response
+
+  /chunks:
+    get:
+      summary: List chunks
+      responses:
+        "200":
+          description: Chunk list
+
+  /search:
+    post:
+      summary: Search documents
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SearchRequest"
+            example:
+              query: What is this document about?
+              top_k: 5
+              document_id: null
+              filename: null
+      responses:
+        "200":
+          description: Search results
+
+  /chat/sessions:
+    post:
+      summary: Create chat session
+      description: Requires the session router to be registered in the FastAPI app.
+      responses:
+        "200":
+          description: Created chat session
+    get:
+      summary: List chat sessions
+      description: Requires the session router to be registered in the FastAPI app.
+      responses:
+        "200":
+          description: Chat session list
+
+  /chat/sessions/{session_id}/messages:
+    get:
+      summary: Get chat session messages
+      description: Requires the session router to be registered in the FastAPI app.
+      parameters:
+        - name: session_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Chat messages
+
+  /chat:
+    post:
+      summary: Chat with citations
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChatRequest"
+            example:
+              query: Summarize the document
+              top_k: 5
+              session_id: SESSION_ID
+              document_id: null
+              filename: null
+      responses:
+        "200":
+          description: Chat response with citations
+
+  /chat/stream:
+    post:
+      summary: Stream chat answer
+      description: Returns a text/plain stream. Citations are not included in the streamed response body.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChatRequest"
+            example:
+              query: Summarize the document
+              top_k: 5
+              session_id: SESSION_ID
+              document_id: null
+              filename: null
+      responses:
+        "200":
+          description: Plain text stream
+          content:
+            text/plain:
+              schema:
+                type: string
+
+components:
+  schemas:
+    SearchRequest:
+      type: object
+      required:
+        - query
+      properties:
+        query:
+          type: string
+        top_k:
+          type: integer
+          default: 5
+        document_id:
+          type: string
+          nullable: true
+        filename:
+          type: string
+          nullable: true
+    ChatRequest:
+      type: object
+      required:
+        - query
+        - session_id
+      properties:
+        query:
+          type: string
+        top_k:
+          type: integer
+          default: 5
+        session_id:
+          type: string
+        document_id:
+          type: string
+          nullable: true
+        filename:
+          type: string
+          nullable: true

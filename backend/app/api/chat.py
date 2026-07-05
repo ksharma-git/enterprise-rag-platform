@@ -5,7 +5,6 @@ from app.database import get_db
 from app.schemas import ChatRequest
 from app.services.retrieval_service import chat as chat_service
 from app.services.retrieval_service import chat_stream as chat_stream_service
-from app.services.retrieval_service import create_chat_session, get_chat_sessions, get_chat_messages
 
 router = APIRouter()
 
@@ -19,9 +18,9 @@ def chat(
         request.query,
         request.top_k,
         db,
+        request.session_id,
         request.document_id,
-        request.filename,
-        request.session_id
+        request.filename
     )
 
 
@@ -34,7 +33,7 @@ def chat_stream(
         request.query,
         request.top_k,
         db,
+        request.session_id,
         request.document_id,
-        request.filename,
-        request.session_id
+        request.filename
     )

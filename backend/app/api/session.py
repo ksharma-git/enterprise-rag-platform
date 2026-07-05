@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.services.retrieval_service import create_chat_session, get_chat_sessions, get_chat_messages
+from app.services.session_service import create_chat_session, get_chat_sessions, get_chat_messages
 
 router = APIRouter()
 
@@ -18,5 +18,5 @@ def get_sessions(db: Session = Depends(get_db)):
 
 
 @router.get("/chat/sessions/{session_id}/messages")
-def get_messages(session_id: str,db: Session = Depends(get_db)):
-    return  get_chat_messages(db, session_id)
+def get_messages(session_id: str, db: Session = Depends(get_db)):
+    return get_chat_messages(db, session_id)
