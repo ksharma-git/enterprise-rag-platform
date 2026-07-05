@@ -22,3 +22,7 @@ CHUNK_SIZE = 1000
 CHUNK_OVERLAP = 150
 
 UPLOAD_DIR = Path("uploads")
+
+CHAT_ROLE_USER = "user"
+
+CHAT_ROLE_ASSISTANT = "assistant"

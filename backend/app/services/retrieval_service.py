@@ -1,13 +1,31 @@
+from http.client import HTTPException
+from typing import Optional
+
 from sqlalchemy.orm import Session
 from fastapi.responses import StreamingResponse
 
 from app.repositories.chunk_repository import search_similar_chunks, keyword_search_chunks
+from app.repositories.chat_repository import get_chat_session, get_recent_messages, create_chat_session, save_chat_message, list_chat_sessions, get_session_messages
 from app.services.embedding_service import generate_embedding
 from app.services.hybrid_search_service import hybrid_merge
 from app.services.llm_service import ask_llama, ask_llama_stream
 
+from backend.app.models import ChatSession
+from app.config import CHAT_ROLE_USER, CHAT_ROLE_ASSISTANT
+
 NO_CONTEXT_ANSWER = "I could not find any relevant information in the uploaded documents."
 
+def build_history_text(messages) -> str:
+    if not messages:
+        return "No previous conversation."
+
+    history_lines = []
+
+    for message in messages:
+        role = "User" if message.role == "user" else "Assistant"
+        history_lines.append(f"{role}: {message.content}")
+
+    return "\n".join(history_lines)
 
 def build_context(chunks):
     context = []
@@ -25,24 +43,30 @@ Chunk {chunk["chunk_index"]}
 
     return "\n\n".join(context)
 
-def build_prompt(question, context):
+def build_prompt(
+    question: str,
+    context: str,
+    chat_history=None,
+) -> str:
+    history_text = build_history_text(chat_history or [])
 
     return f"""
-You are an enterprise knowledge assistant.
+You are an Enterprise Knowledge Assistant.
 
-Answer ONLY using the provided context.
+Use the retrieved context as the source of truth.
+Use conversation history only to understand follow-up questions.
+If the answer is not in the retrieved context, say you could not find it in the uploaded documents.
 
-If the answer cannot be found, say:
+Conversation history:
+{history_text}
 
-"I couldn't find that information in the uploaded documents."
-
-Context:
-
+Retrieved context:
 {context}
 
-Question:
-
+Current question:
 {question}
+
+Answer:
 """
 
 
@@ -91,7 +115,16 @@ def search_documents(query: str, top_k: int, db: Session, document_id=None, file
     }
 
 
-def chat(query: str, top_k: int, db: Session, document_id=None, filename=None):
+def chat(query: str, top_k: int, db: Session, document_id=None, filename=None, session_id: str):
+    chat_session = get_chat_session_or_throw(db, session_id)
+    save_chat_message(db, session_id, CHAT_ROLE_USER, query)
+    recent_messages = get_recent_messages(
+        db=db,
+        session_id=session_id,
+        limit=6,
+    )
+    recent_messages = list(reversed(recent_messages))
+
     query_embedding = generate_embedding(query)
 
     received_chunks = search_similar_chunks(
@@ -111,29 +144,33 @@ def chat(query: str, top_k: int, db: Session, document_id=None, filename=None):
 
     context = build_context(received_chunks)
 
-    prompt = build_prompt(query, context)
+    prompt = build_prompt(query, context, recent_messages)
 
     answer = ask_llama(prompt)
 
-    citations = [
-        {
-            "chunk_id": str(chunk["id"]),
-            "document_id": str(chunk["document_id"]),
-            "filename": chunk["filename"],
-            "chunk_index": chunk["chunk_index"],
-            "distance": float(chunk["distance"]),
-            "chunk_text": chunk["chunk_text"],
-        }
-        for chunk in received_chunks
-    ]
+    citations = build_citations(received_chunks)
+
+    save_chat_message(db, session_id, CHAT_ROLE_ASSISTANT, answer, citations)
 
     return {
+        "session_id": str(chat_session.id),
         "query": query,
         "answer": answer,
         "citations": citations,
     }
 
-def chat_stream(query: str, top_k: int, db: Session, document_id=None, filename=None):
+def chat_stream(query: str, top_k: int, db: Session, document_id=None, filename=None, session_id: str):
+    chat_session = get_chat_session_or_throw(db, session_id)
+
+    save_chat_message(db, session_id, CHAT_ROLE_USER, query)
+
+    recent_messages = get_recent_messages(
+        db=db,
+        session_id=session_id,
+        limit=6,
+    )
+    recent_messages = list(reversed(recent_messages))
+
     query_embedding = generate_embedding(query)
 
     received_chunks = search_similar_chunks(
@@ -144,18 +181,67 @@ def chat_stream(query: str, top_k: int, db: Session, document_id=None, filename=
         top_k=top_k,
     )
 
+    if not received_chunks:
+        save_chat_message(
+            db,
+            chat_session.id,
+            CHAT_ROLE_ASSISTANT,
+            NO_CONTEXT_ANSWER,
+            [],
+        )
+
+        return StreamingResponse(
+            iter([NO_CONTEXT_ANSWER]),
+            media_type="text/plain",
+        )
+
+    context = build_context(received_chunks)
+
+    prompt = build_prompt(query, context, recent_messages)
+
+    citations = build_citations(received_chunks)
+
     def token_generator():
+        full_answer = ""
         if not received_chunks:
             yield NO_CONTEXT_ANSWER
             return
 
-        context = build_context(received_chunks)
-        prompt = build_prompt(query, context)
-
         for token in ask_llama_stream(prompt):
+            full_answer += token
             yield token
+
+        save_chat_message(db, session_id, CHAT_ROLE_ASSISTANT, full_answer, citations)
 
     return StreamingResponse(
         token_generator(),
         media_type="text/plain",
     )
+
+def get_chat_session_or_throw(
+        db: Session, session_id: str,
+) -> ChatSession:
+    session = get_chat_session(db, session_id)
+
+    if session is None:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Chat session '{session_id}' not found.",
+        )
+
+    return session
+
+def build_citations(chunks):
+    return [
+        {
+            "chunk_id": str(chunk["id"]),
+            "document_id": str(chunk["document_id"]),
+            "filename": chunk["filename"],
+            "chunk_index": chunk["chunk_index"],
+            "vector_score": chunk.get("vector_score"),
+            "keyword_score": chunk.get("keyword_score"),
+            "hybrid_score": chunk.get("hybrid_score"),
+            "distance": float(chunk["distance"]) if chunk.get("distance") is not None else None,
+        }
+        for chunk in chunks
+    ]
