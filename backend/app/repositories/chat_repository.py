@@ -4,7 +4,7 @@ from app.models import ChatSession, ChatMessage
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy import text
 
-def create_chat_session(db: Session, title: str = "New Chat"):
+def create_chat_session(db: Session, title: str = "Chat Session"):
     chat_session = ChatSession(title=title)
     db.add(chat_session)
     db.commit()
@@ -68,6 +68,24 @@ def get_chat_session(
         .filter(ChatSession.id == uuid.UUID(session_id))
         .first()
     )
+
+def delete_chat_session(
+    db: Session,
+    session_id,
+) -> ChatSession:
+    session = (
+        db.query(ChatSession)
+        .filter(ChatSession.id == session_id)
+        .first()
+    )
+
+    if not session:
+        return None
+
+    db.delete(session)
+    db.commit()
+
+    return session
 
 def get_recent_messages(
     db: Session,

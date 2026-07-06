@@ -31,7 +31,10 @@ st.markdown(
     <style>
     #MainMenu,
     footer,
+    header[data-testid="stHeader"],
+    [data-testid="stHeader"],
     [data-testid="stDecoration"],
+    [data-testid="stToolbar"],
     [data-testid="stStatusWidget"],
     [data-testid="stDeployButton"],
     [data-testid="stAppDeployButton"],
@@ -65,7 +68,7 @@ st.markdown(
 
     .block-container {
         max-width: 1220px;
-        padding-top: 1rem;
+        padding-top: 0.75rem;
         padding-bottom: 3rem;
     }
 
@@ -89,6 +92,17 @@ st.markdown(
     }
 
     /* ---------- Top header / nav bar ---------- */
+    .app-shell-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
+        background: var(--surface);
+        border: 1px solid var(--border-color);
+        border-radius: 10px;
+        padding: 0.65rem 0.8rem;
+        margin-bottom: 0.55rem;
+    }
     .brand-row {
         display: flex;
         align-items: center;
@@ -97,10 +111,20 @@ st.markdown(
         font-size: 1.05rem;
         color: var(--brand-navy);
         letter-spacing: -0.01em;
-        padding-bottom: 0.5rem;
+        padding-bottom: 0;
     }
     .brand-row .brand-mark {
         font-size: 1.3rem;
+    }
+    .current-page-pill {
+        color: var(--brand-blue);
+        background: var(--brand-blue-light);
+        border: 1px solid #bfdbfe;
+        border-radius: 999px;
+        padding: 0.22rem 0.65rem;
+        font-size: 0.78rem;
+        font-weight: 700;
+        white-space: nowrap;
     }
     /* ---------- Buttons (general) ---------- */
     .stButton > button {
@@ -262,6 +286,83 @@ st.markdown(
         padding: 0.25rem 0.7rem;
         margin-bottom: 0.5rem;
     }
+    .stButton > button p {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+    button[title^="Open chat session"],
+    button[aria-label^="Open chat session"],
+    button[title^="Selected chat session"],
+    button[aria-label^="Selected chat session"] {
+        min-height: 2.25rem !important;
+        justify-content: flex-start !important;
+        padding: 0 0.75rem !important;
+        border-radius: 8px 0 0 8px !important;
+        box-shadow: none !important;
+        font-weight: 500 !important;
+        background: transparent !important;
+        border-color: transparent !important;
+        color: var(--brand-navy) !important;
+    }
+    button[title^="Open chat session"]:hover,
+    button[aria-label^="Open chat session"]:hover {
+        background: #f8fafc !important;
+        border-color: transparent !important;
+        color: var(--brand-navy) !important;
+    }
+    button[title^="Selected chat session"],
+    button[aria-label^="Selected chat session"] {
+        background: var(--brand-blue-light) !important;
+        border-color: #bfdbfe !important;
+        color: #1d4ed8 !important;
+        font-weight: 600 !important;
+    }
+    button[title^="Selected chat session"]:hover,
+    button[aria-label^="Selected chat session"]:hover {
+        background: #dbeafe !important;
+        border-color: #93c5fd !important;
+        color: #1d4ed8 !important;
+    }
+    button[title="Create chat session"],
+    button[aria-label="Create chat session"],
+    button[title="Refresh chat sessions"],
+    button[aria-label="Refresh chat sessions"] {
+        min-height: 2.15rem !important;
+        border-radius: 8px !important;
+        padding: 0 0.65rem !important;
+        font-size: 0.86rem !important;
+        box-shadow: none !important;
+    }
+    button[title^="Delete chat session"],
+    button[aria-label^="Delete chat session"],
+    button[title^="Delete selected chat session"],
+    button[aria-label^="Delete selected chat session"] {
+        min-height: 2.25rem !important;
+        width: 2.25rem !important;
+        padding: 0 !important;
+        border-radius: 8px !important;
+        color: var(--text-muted) !important;
+        background: transparent !important;
+        border-color: transparent !important;
+        box-shadow: none !important;
+        opacity: 0.62;
+        transition: opacity 0.12s ease, background 0.12s ease, color 0.12s ease;
+    }
+    button[title^="Delete selected chat session"],
+    button[aria-label^="Delete selected chat session"] {
+        color: #1d4ed8 !important;
+        opacity: 0.78;
+    }
+    button[title^="Delete chat session"]:hover,
+    button[aria-label^="Delete chat session"]:hover,
+    button[title^="Delete selected chat session"]:hover,
+    button[aria-label^="Delete selected chat session"]:hover {
+        color: #dc2626 !important;
+        background: #fef2f2 !important;
+        border-color: #fecaca !important;
+        opacity: 1;
+    }
     </style>
     """,
     unsafe_allow_html=True,
@@ -351,6 +452,17 @@ def createChatSession():
         return None, error
     if not response.ok:
         return None, f"Failed to create session ({response.status_code}): {response.text}"
+
+    return response.json(), None
+
+
+def deleteChatSession(sessionId):
+    response, error = safe_request("DELETE", f"{API_URL}/chat/sessions/{sessionId}", timeout=60)
+
+    if error:
+        return None, error
+    if not response.ok:
+        return None, f"Failed to delete session ({response.status_code}): {response.text}"
 
     return response.json(), None
 
@@ -472,6 +584,75 @@ def select_chat_session(state_prefix, session_id):
     load_session_messages(state_prefix, session_id)
 
 
+def delete_selected_chat_session(state_prefix, session_id):
+    selected_session_key = f"{state_prefix}_selected_session_id"
+    messages_key = f"{state_prefix}_messages"
+    error_key = f"{state_prefix}_sessions_error"
+
+    _, error = deleteChatSession(session_id)
+
+    if error:
+        st.session_state[error_key] = error
+        return
+
+    if st.session_state.get(selected_session_key) == session_id:
+        st.session_state[selected_session_key] = None
+        st.session_state[messages_key] = []
+        st.session_state[f"{state_prefix}_messages_error"] = None
+
+    load_sessions(state_prefix)
+
+
+def request_delete_chat_session(state_prefix, session_id, title):
+    st.session_state[f"{state_prefix}_pending_delete_session"] = {
+        "session_id": session_id,
+        "title": title,
+    }
+
+    if hasattr(st, "dialog"):
+        render_delete_chat_session_dialog(state_prefix)
+    else:
+        st.rerun()
+
+
+def render_delete_chat_session_confirmation(state_prefix):
+    pending_delete = st.session_state.get(f"{state_prefix}_pending_delete_session")
+
+    if not pending_delete:
+        return
+
+    session_id = pending_delete["session_id"]
+    title = pending_delete.get("title") or "New Chat"
+
+    st.write(f'Delete "{title}"?')
+    st.caption("This will remove the chat session and its messages.")
+
+    cancel_col, delete_col = st.columns([1, 1])
+    with cancel_col:
+        if st.button("Cancel", key=f"{state_prefix}_cancel_delete_session", use_container_width=True):
+            st.session_state.pop(f"{state_prefix}_pending_delete_session", None)
+            st.rerun()
+    with delete_col:
+        if st.button(
+            "Delete",
+            key=f"{state_prefix}_confirm_delete_session",
+            type="primary",
+            use_container_width=True,
+        ):
+            st.session_state.pop(f"{state_prefix}_pending_delete_session", None)
+            delete_selected_chat_session(state_prefix, session_id)
+            st.rerun()
+
+
+if hasattr(st, "dialog"):
+    @st.dialog("Delete chat session?")
+    def render_delete_chat_session_dialog(state_prefix):
+        render_delete_chat_session_confirmation(state_prefix)
+else:
+    def render_delete_chat_session_dialog(state_prefix):
+        render_delete_chat_session_confirmation(state_prefix)
+
+
 def request_chat_scroll(state_prefix):
     scroll_key = f"{state_prefix}_scroll_version"
     st.session_state[scroll_key] = st.session_state.get(scroll_key, 0) + 1
@@ -529,11 +710,14 @@ def render_session_list(state_prefix):
     if sessions_key not in st.session_state:
         load_sessions(state_prefix)
 
-    st.markdown('<div class="chat-layout-title">Chats</div>', unsafe_allow_html=True)
-
-    new_col, refresh_col = st.columns([1, 1])
+    new_col, refresh_col = st.columns([1, 1], gap="small")
     with new_col:
-        if st.button("+ New Chat", key=f"{state_prefix}_new_session", use_container_width=True):
+        if st.button(
+            "+ New Chat",
+            key=f"{state_prefix}_new_session",
+            use_container_width=True,
+            help="Create chat session",
+        ):
             with st.spinner("Creating..."):
                 session, error = createChatSession()
             if error:
@@ -542,7 +726,12 @@ def render_session_list(state_prefix):
                 load_sessions(state_prefix)
                 select_chat_session(state_prefix, session["session_id"])
     with refresh_col:
-        if st.button("Refresh", key=f"{state_prefix}_refresh_sessions", use_container_width=True):
+        if st.button(
+            "Refresh",
+            key=f"{state_prefix}_refresh_sessions",
+            use_container_width=True,
+            help="Refresh chat sessions",
+        ):
             with st.spinner("Loading..."):
                 load_sessions(state_prefix)
 
@@ -550,7 +739,10 @@ def render_session_list(state_prefix):
     sessions = st.session_state.get(sessions_key, [])
     error = st.session_state.get(f"{state_prefix}_sessions_error")
 
-    with st.container(height=570, border=True):
+    if not hasattr(st, "dialog"):
+        render_delete_chat_session_confirmation(state_prefix)
+
+    with st.container(height=705, border=True):
         error = st.session_state.get(f"{state_prefix}_sessions_error")
         if error:
             st.error(error)
@@ -565,15 +757,33 @@ def render_session_list(state_prefix):
             for session in sessions:
                 session_id = session["session_id"]
                 title = session.get("title") or "New Chat"
-                label = f"{title} · {session_id[:8]}"
-                button_type = "primary" if session_id == selected_session_id else "secondary"
-                if st.button(
-                    label,
-                    key=f"{state_prefix}_session_{session_id}",
-                    use_container_width=True,
-                    type=button_type,
-                ):
-                    select_chat_session(state_prefix, session_id)
+                selected = session_id == selected_session_id
+                row_help = (
+                    f"Selected chat session: {session_id}"
+                    if selected
+                    else f"Open chat session: {session_id}"
+                )
+                session_col, delete_col = st.columns([0.86, 0.14], gap="small")
+                with session_col:
+                    if st.button(
+                        title,
+                        key=f"{state_prefix}_session_{session_id}",
+                        use_container_width=True,
+                        type="secondary",
+                        help=row_help,
+                    ):
+                        select_chat_session(state_prefix, session_id)
+                with delete_col:
+                    if st.button(
+                        "🗑",
+                        key=f"{state_prefix}_delete_session_{session_id}",
+                        help=(
+                            f"Delete selected chat session: {session_id}"
+                            if selected
+                            else f"Delete chat session: {session_id}"
+                        ),
+                    ):
+                        request_delete_chat_session(state_prefix, session_id, title)
 
     if selected_session_id and f"{state_prefix}_messages" not in st.session_state:
         load_session_messages(state_prefix, selected_session_id)
@@ -796,7 +1006,7 @@ def render_chunks():
 def render_chat():
     page_header("Assistant", "Chat", "Ask questions against your uploaded document knowledge base.")
 
-    sessions_col, conversation_col = st.columns([1, 2.8], gap="large")
+    sessions_col, conversation_col = st.columns([1.05, 3.0], gap="small")
 
     with sessions_col:
         selected_session_id = render_session_list("chat")
@@ -853,7 +1063,7 @@ def stream_answer(payload):
 def render_chat_stream():
     page_header("Assistant", "Chat Stream", "Ask questions and stream the answer as it is generated.")
 
-    sessions_col, conversation_col = st.columns([1, 2.8], gap="large")
+    sessions_col, conversation_col = st.columns([1.05, 3.0], gap="small")
 
     with sessions_col:
         selected_session_id = render_session_list("stream")
@@ -970,8 +1180,14 @@ def render_search():
 if "page" not in st.session_state or st.session_state["page"] not in PAGE_OPTIONS:
     st.session_state["page"] = "Dashboard"
 
+current_page = st.session_state["page"]
 st.markdown(
-    '<div class="brand-row"><span class="brand-mark">🧠</span> Enterprise RAG Platform</div>',
+    f"""
+    <div class="app-shell-header">
+        <div class="brand-row"><span class="brand-mark">🧠</span> Enterprise RAG Platform</div>
+        <div class="current-page-pill">{PAGE_ICONS[current_page]} {current_page}</div>
+    </div>
+    """,
     unsafe_allow_html=True,
 )
 

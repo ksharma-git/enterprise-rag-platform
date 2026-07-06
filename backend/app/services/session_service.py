@@ -1,6 +1,10 @@
+from uuid import UUID
+
+from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
 from app.repositories.chat_repository import create_chat_session as create_session
+from app.repositories.chat_repository import delete_chat_session as delete_session
 from app.repositories.chat_repository import get_session_messages, list_chat_sessions
 
 def create_chat_session(db: Session):
@@ -39,3 +43,21 @@ def get_chat_messages(
         }
         for message in messages
     ]
+
+def delete_chat_session(
+    db: Session, session_id: str
+):
+    try:
+        session_uuid = UUID(session_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid chat session id")
+
+    session = delete_session(db, session_uuid)
+
+    if not session:
+        raise HTTPException(status_code=404, detail="Chat session not found")
+
+    return {
+        "message": "Chat session deleted successfully",
+        "session_id": session_id,
+    }

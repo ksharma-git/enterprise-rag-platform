@@ -45,7 +45,7 @@ class ChatSession(Base):
     __tablename__ = "chat_sessions"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    title = Column(Text, default="New Chat")
+    title = Column(Text, default="Chat Session")
     created_at = Column(TIMESTAMP, server_default=func.now())
     updated_at = Column(TIMESTAMP, server_default=func.now())
 
