@@ -18,7 +18,7 @@ st.set_page_config(
     page_title="Enterprise RAG Platform",
     page_icon="🧠",
     layout="wide",
-    initial_sidebar_state="expanded",
+    initial_sidebar_state="collapsed",
 )
 
 # --------------------------------------------------------------------------
@@ -28,11 +28,17 @@ st.markdown(
     """
     <style>
     #MainMenu,
+    header[data-testid="stHeader"],
+    [data-testid="stHeader"],
+    [data-testid="stToolbar"],
+    [data-testid="stAppToolbar"],
     footer,
     [data-testid="stDecoration"],
     [data-testid="stStatusWidget"],
     [data-testid="stDeployButton"],
     [data-testid="stAppDeployButton"],
+    [data-testid="stSidebar"],
+    [data-testid="collapsedControl"],
     .stDeployButton,
     .stAppDeployButton,
     button[title="Deploy"],
@@ -61,7 +67,7 @@ st.markdown(
 
     .block-container {
         max-width: 1220px;
-        padding-top: 1.75rem;
+        padding-top: 0;
         padding-bottom: 3rem;
     }
 
@@ -77,7 +83,6 @@ st.markdown(
         letter-spacing: -0.01em;
     }
 
-    /* Tighten default Streamlit block spacing */
     [data-testid="stVerticalBlock"] {
         gap: 0.6rem;
     }
@@ -85,26 +90,52 @@ st.markdown(
         margin-top: 0.15rem;
     }
 
-    /* ---------- Sidebar ---------- */
-    [data-testid="stSidebar"] {
+    /* ---------- Top header / nav bar ---------- */
+    .top-header-wrap {
+        position: sticky;
+        top: 0;
+        z-index: 999;
         background: var(--surface);
-        border-right: 1px solid var(--border-color);
+        border-bottom: 1px solid var(--border-color);
+        margin: 0 -1rem 1.5rem -1rem;
+        padding: 0.65rem 1rem 0 1rem;
+        box-shadow: 0 1px 8px rgba(15, 23, 42, 0.04);
     }
-    [data-testid="stSidebar"] .stButton > button {
-        justify-content: flex-start;
+    .brand-row {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-weight: 700;
+        font-size: 1.05rem;
+        color: var(--brand-navy);
+        letter-spacing: -0.01em;
+        padding-bottom: 0.5rem;
+    }
+    .brand-row .brand-mark {
+        font-size: 1.3rem;
+    }
+    .top-nav .stButton > button {
         border: 1px solid transparent;
         background: transparent;
-        color: var(--brand-navy);
-        font-weight: 500;
-        border-radius: 8px;
-        transition: background 0.15s ease, border-color 0.15s ease;
+        color: var(--text-muted);
+        font-weight: 600;
+        font-size: 0.88rem;
+        border-radius: 8px 8px 0 0;
+        min-height: 2.35rem;
+        padding: 0 0.9rem;
+        transition: background 0.15s ease, color 0.15s ease;
     }
-    [data-testid="stSidebar"] .stButton > button:hover {
-        border-color: var(--border-color);
+    .top-nav .stButton > button:hover {
         background: var(--brand-blue-light);
         color: var(--brand-blue);
     }
-    /* ---------- Buttons ---------- */
+    .top-nav-active .stButton > button {
+        color: var(--brand-blue);
+        border-bottom: 2px solid var(--brand-blue);
+        background: var(--brand-blue-light);
+    }
+
+    /* ---------- Buttons (general) ---------- */
     .stButton > button {
         border-radius: 8px;
         min-height: 2.5rem;
@@ -116,7 +147,7 @@ st.markdown(
         border: none;
     }
 
-    /* ---------- Native bordered containers (used for cards & item rows) ---------- */
+    /* ---------- Native bordered containers (cards / rows) ---------- */
     div[data-testid="stVerticalBlockBorderWrapper"] {
         border-radius: 12px !important;
         border-color: var(--border-color) !important;
@@ -196,6 +227,84 @@ st.markdown(
         border-radius: 10px;
         overflow: hidden;
     }
+
+    /* ---------- Chat UI ---------- */
+    .chat-thread-marker + div[data-testid="stVerticalBlockBorderWrapper"] {
+        height: 480px;
+        overflow-y: auto;
+        padding: 0.25rem 0.4rem;
+    }
+    .chat-thread-marker,
+    .session-strip-marker {
+        display: none;
+    }
+    .session-strip-marker + div[data-testid="stVerticalBlockBorderWrapper"] {
+        padding: 0.6rem 0.9rem;
+        margin-bottom: 0.7rem;
+    }
+    div[data-testid="stChatMessage"] {
+        background: transparent;
+        padding: 0.35rem 0;
+        max-width: 78%;
+    }
+    div[data-testid="stChatMessage"]:has(div[data-testid="stChatMessageAvatarUser"]) {
+        margin-left: auto;
+    }
+    div[data-testid="stChatMessage"]:has(div[data-testid="stChatMessageAvatarUser"]) [data-testid="stChatMessageContent"] {
+        background: var(--brand-blue);
+        color: #ffffff;
+        border-radius: 14px 14px 3px 14px;
+        padding: 0.6rem 0.85rem;
+    }
+    div[data-testid="stChatMessage"]:has(div[data-testid="stChatMessageAvatarUser"]) [data-testid="stChatMessageContent"] p {
+        color: #ffffff;
+    }
+    div[data-testid="stChatMessage"]:not(:has(div[data-testid="stChatMessageAvatarUser"])) [data-testid="stChatMessageContent"] {
+        background: var(--surface-alt);
+        border: 1px solid var(--border-color);
+        border-radius: 14px 14px 14px 3px;
+        padding: 0.6rem 0.85rem;
+    }
+    .session-strip {
+        background: var(--surface);
+        border: 1px solid var(--border-color);
+        border-radius: 12px;
+        padding: 0.6rem 0.8rem;
+        margin-bottom: 0.9rem;
+    }
+    .session-strip-label {
+        font-size: 0.72rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: var(--text-muted);
+        margin-bottom: 0.2rem;
+    }
+    .composer-wrap {
+        background: var(--surface);
+        border: 1px solid var(--border-color);
+        border-radius: 14px;
+        padding: 0.85rem 0.95rem 0.6rem 0.95rem;
+    }
+    .streaming-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+        font-size: 0.78rem;
+        font-weight: 600;
+        color: var(--brand-blue);
+        background: var(--brand-blue-light);
+        border-radius: 999px;
+        padding: 0.25rem 0.7rem;
+        margin-bottom: 0.5rem;
+    }
+    .sources-card {
+        background: var(--surface);
+        border: 1px solid var(--border-color);
+        border-radius: 12px;
+        padding: 0.9rem 1rem;
+        margin-top: 0.7rem;
+    }
     </style>
     """,
     unsafe_allow_html=True,
@@ -217,8 +326,10 @@ def page_header(eyebrow, title, subtitle):
     st.markdown('<hr class="section-divider" />', unsafe_allow_html=True)
 
 
-def build_query_payload(query, top_k, document_id, filename):
+def build_query_payload(query, top_k, document_id, filename, session_id=None):
     payload = {"query": query, "top_k": int(top_k)}
+    if session_id:
+        payload["session_id"] = session_id
     if document_id.strip():
         payload["document_id"] = document_id.strip()
     if filename.strip():
@@ -254,6 +365,51 @@ def safe_request(method, url, **kwargs):
         return None, f"Request failed: {exc}"
 
 
+def getChatSessions():
+    response, error = safe_request("GET", f"{API_URL}/chat/sessions", timeout=60)
+
+    if error:
+        return None, error
+    if not response.ok:
+        return None, f"Failed to load sessions ({response.status_code}): {response.text}"
+
+    return response.json(), None
+
+
+def getChatSessionMessages(sessionId):
+    response, error = safe_request("GET", f"{API_URL}/chat/sessions/{sessionId}/messages", timeout=60)
+
+    if error:
+        return None, error
+    if not response.ok:
+        return None, f"Failed to load messages ({response.status_code}): {response.text}"
+
+    return response.json(), None
+
+
+def createChatSession():
+    response, error = safe_request("POST", f"{API_URL}/chat/sessions", timeout=60)
+
+    if error:
+        return None, error
+    if not response.ok:
+        return None, f"Failed to create session ({response.status_code}): {response.text}"
+
+    return response.json(), None
+
+
+def sendChatMessage(query, sessionId, topK, documentId, filename):
+    payload = build_query_payload(query, topK, documentId, filename, sessionId)
+    response, error = safe_request("POST", f"{API_URL}/chat", json=payload, timeout=180)
+
+    if error:
+        return None, error
+    if not response.ok:
+        return None, f"Request failed ({response.status_code}): {response.text}"
+
+    return response.json(), None
+
+
 def render_empty_state(message):
     st.markdown(f'<div class="empty-state">{message}</div>', unsafe_allow_html=True)
 
@@ -272,12 +428,132 @@ def render_dashboard_card(icon, title, description, target_page, button_label):
             set_page(target_page)
 
 
+def load_sessions(state_prefix):
+    sessions, error = getChatSessions()
+
+    if error:
+        st.session_state[f"{state_prefix}_sessions_error"] = error
+        return
+
+    st.session_state[f"{state_prefix}_sessions"] = sessions
+    st.session_state[f"{state_prefix}_sessions_error"] = None
+
+
+def load_session_messages(state_prefix, session_id):
+    if not session_id:
+        st.session_state[f"{state_prefix}_messages"] = []
+        return
+
+    messages, error = getChatSessionMessages(session_id)
+
+    if error:
+        st.session_state[f"{state_prefix}_messages_error"] = error
+        return
+
+    st.session_state[f"{state_prefix}_messages"] = messages
+    st.session_state[f"{state_prefix}_messages_error"] = None
+
+
+def render_session_strip(state_prefix):
+    """Compact top strip: new chat / refresh / session picker, full width."""
+    session_key = f"{state_prefix}_selected_session_id"
+    sessions_key = f"{state_prefix}_sessions"
+
+    if sessions_key not in st.session_state:
+        load_sessions(state_prefix)
+
+    st.markdown('<span class="session-strip-marker"></span>', unsafe_allow_html=True)
+    with st.container(border=True):
+        picker_col, new_col, refresh_col = st.columns([4, 1.1, 1.1], vertical_alignment="center")
+
+        error = st.session_state.get(f"{state_prefix}_sessions_error")
+        sessions = st.session_state.get(sessions_key, [])
+
+        selected_session_id = None
+        with picker_col:
+            if error:
+                st.error(error)
+            elif not sessions:
+                st.caption("No chat sessions yet — start a new chat.")
+            else:
+                session_labels = {
+                    session["session_id"]: (
+                        f'{session.get("title") or "New Chat"} · {session["session_id"][:8]}'
+                    )
+                    for session in sessions
+                }
+                session_ids = list(session_labels.keys())
+                selected_session_id = st.session_state.get(session_key)
+
+                if selected_session_id not in session_ids:
+                    selected_session_id = session_ids[0]
+                    st.session_state[session_key] = selected_session_id
+                    st.session_state[f"{state_prefix}_session_select"] = selected_session_id
+
+                selected_index = session_ids.index(selected_session_id)
+                selected_session_id = st.selectbox(
+                    "Chat session",
+                    options=session_ids,
+                    format_func=lambda session_id: session_labels[session_id],
+                    index=selected_index,
+                    key=f"{state_prefix}_session_select",
+                    label_visibility="collapsed",
+                )
+
+                if st.session_state.get(session_key) != selected_session_id:
+                    st.session_state[session_key] = selected_session_id
+                    load_session_messages(state_prefix, selected_session_id)
+
+                if f"{state_prefix}_messages" not in st.session_state:
+                    load_session_messages(state_prefix, selected_session_id)
+
+        with new_col:
+            if st.button("+ New", key=f"{state_prefix}_new_session", use_container_width=True):
+                with st.spinner("Creating..."):
+                    session, error = createChatSession()
+                if error:
+                    st.error(error)
+                else:
+                    st.session_state[session_key] = session["session_id"]
+                    st.session_state[f"{state_prefix}_session_select"] = session["session_id"]
+                    load_sessions(state_prefix)
+                    load_session_messages(state_prefix, session["session_id"])
+                    st.rerun()
+
+        with refresh_col:
+            if st.button("Refresh", key=f"{state_prefix}_refresh_sessions", use_container_width=True):
+                with st.spinner("Loading..."):
+                    load_sessions(state_prefix)
+                st.rerun()
+
+    return selected_session_id
+
+
+def render_chat_messages(messages):
+    if not messages:
+        render_empty_state("No messages yet — ask a question below to start the conversation.")
+        return
+
+    for message in messages:
+        role = message.get("role", "assistant")
+        content = message.get("content") or ""
+        with st.chat_message("user" if role == "user" else "assistant"):
+            st.write(content)
+            citations = message.get("citations") or []
+            if citations:
+                with st.expander(f"📎 {len(citations)} source(s)"):
+                    for index, citation in enumerate(citations, start=1):
+                        st.caption(citation_title(citation, index))
+
+
 def render_sources(citations):
-    st.subheader("Sources Used")
+    st.markdown('<div class="sources-card">', unsafe_allow_html=True)
+    st.markdown("**Sources used**")
     st.caption("Retrieved document chunks used to generate this answer.")
 
     if not citations:
         render_empty_state("No sources were returned for this answer.")
+        st.markdown("</div>", unsafe_allow_html=True)
         return
 
     for index, citation in enumerate(citations, start=1):
@@ -314,6 +590,19 @@ def render_sources(citations):
                     label_visibility="collapsed",
                     key=f"citation-text-{citation.get('chunk_id', index)}",
                 )
+    st.markdown("</div>", unsafe_allow_html=True)
+
+
+def render_chat_options(state_prefix, default_top_k=3):
+    """Collapsed-by-default retrieval options, keeps the composer clean."""
+    with st.expander("⚙️ Retrieval options (Top K, document/filename filters)"):
+        col1, col2, col3 = st.columns(3)
+        top_k = col1.number_input(
+            "Top K", min_value=1, max_value=20, value=default_top_k, key=f"{state_prefix}_top_k"
+        )
+        document_id = col2.text_input("Document ID (optional)", key=f"{state_prefix}_document_id")
+        filename = col3.text_input("Filename (optional)", key=f"{state_prefix}_filename")
+    return top_k, document_id, filename
 
 
 # --------------------------------------------------------------------------
@@ -444,31 +733,48 @@ def render_chunks():
 def render_chat():
     page_header("Assistant", "Chat", "Ask questions against your uploaded document knowledge base.")
 
-    query = st.text_area("Question", height=120, placeholder="e.g. What are the key findings in the Q3 report?")
-    col1, col2, col3 = st.columns(3)
-    top_k = col1.number_input("Top K", min_value=1, max_value=20, value=3, key="chat_top_k")
-    document_id = col2.text_input("Document ID (optional)", key="chat_document_id")
-    filename = col3.text_input("Filename (optional)", key="chat_filename")
+    selected_session_id = render_session_strip("chat")
 
-    if st.button("Ask", disabled=not query.strip(), use_container_width=True, type="primary"):
-        with st.spinner("Generating answer..."):
-            response, error = safe_request(
-                "POST",
-                f"{API_URL}/chat",
-                json=build_query_payload(query, top_k, document_id, filename),
-                timeout=180,
+    st.markdown('<span class="chat-thread-marker"></span>', unsafe_allow_html=True)
+    with st.container(border=True):
+        if selected_session_id:
+            message_error = st.session_state.get("chat_messages_error")
+            if message_error:
+                st.error(message_error)
+            else:
+                render_chat_messages(st.session_state.get("chat_messages", []))
+        else:
+            render_empty_state("Select or create a chat session to begin.")
+
+    top_k, document_id, filename = render_chat_options("chat")
+
+    with st.container(border=True):
+        query = st.text_area(
+            "Question",
+            height=90,
+            placeholder="e.g. What are the key findings in the Q3 report?",
+            key="chat_query",
+            label_visibility="collapsed",
+        )
+        ask_col, spacer_col = st.columns([1, 4])
+        with ask_col:
+            ask_clicked = st.button(
+                "Ask ➤",
+                disabled=not query.strip() or not selected_session_id,
+                use_container_width=True,
+                type="primary",
             )
+
+    if ask_clicked:
+        with st.spinner("Generating answer..."):
+            data, error = sendChatMessage(query, selected_session_id, top_k, document_id, filename)
 
         if error:
             st.error(error)
-        elif response.ok:
-            data = response.json()
-            st.markdown('<hr class="section-divider" />', unsafe_allow_html=True)
-            st.subheader("Answer")
-            st.write(data.get("answer", "No answer returned."))
-            render_sources(data.get("citations", []))
         else:
-            st.error(f"Request failed ({response.status_code}): {response.text}")
+            load_session_messages("chat", selected_session_id)
+            render_sources(data.get("citations", []))
+            st.rerun()
 
 
 def stream_answer(payload):
@@ -482,35 +788,58 @@ def stream_answer(payload):
 def render_chat_stream():
     page_header("Assistant", "Chat Stream", "Ask questions and stream the answer as it is generated.")
 
-    query = st.text_area(
-        "Question",
-        height=120,
-        placeholder="e.g. Summarize the uploaded policy document",
-        key="stream_query",
-    )
-    col1, col2, col3 = st.columns(3)
-    top_k = col1.number_input("Top K", min_value=1, max_value=20, value=3, key="stream_top_k")
-    document_id = col2.text_input("Document ID (optional)", key="stream_document_id")
-    filename = col3.text_input("Filename (optional)", key="stream_filename")
+    selected_session_id = render_session_strip("stream")
 
-    if st.button("Stream Answer", disabled=not query.strip(), use_container_width=True, type="primary"):
-        payload = build_query_payload(query, top_k, document_id, filename)
-        st.markdown('<hr class="section-divider" />', unsafe_allow_html=True)
-        st.subheader("Answer")
+    st.markdown('<span class="chat-thread-marker"></span>', unsafe_allow_html=True)
+    with st.container(border=True):
+        if selected_session_id:
+            message_error = st.session_state.get("stream_messages_error")
+            if message_error:
+                st.error(message_error)
+            else:
+                render_chat_messages(st.session_state.get("stream_messages", []))
+        else:
+            render_empty_state("Select or create a chat session to begin.")
 
-        try:
-            st.write_stream(stream_answer(payload))
-        except requests.exceptions.ConnectionError:
-            st.error("Could not connect to the backend. Is the API running?")
-        except requests.exceptions.Timeout:
-            st.error("The request timed out. The backend may be under heavy load.")
-        except requests.exceptions.HTTPError as exc:
-            response = exc.response
-            detail = response.text if response is not None else str(exc)
-            status_code = response.status_code if response is not None else "unknown"
-            st.error(f"Stream failed ({status_code}): {detail}")
-        except requests.exceptions.RequestException as exc:
-            st.error(f"Stream failed: {exc}")
+    top_k, document_id, filename = render_chat_options("stream")
+
+    with st.container(border=True):
+        query = st.text_area(
+            "Question",
+            height=90,
+            placeholder="e.g. Summarize the uploaded policy document",
+            key="stream_query",
+            label_visibility="collapsed",
+        )
+        ask_col, spacer_col = st.columns([1, 4])
+        with ask_col:
+            stream_clicked = st.button(
+                "Stream ➤",
+                disabled=not query.strip() or not selected_session_id,
+                use_container_width=True,
+                type="primary",
+            )
+
+    if stream_clicked:
+        payload = build_query_payload(query, top_k, document_id, filename, selected_session_id)
+
+        st.markdown('<span class="streaming-badge">🟢 Streaming answer…</span>', unsafe_allow_html=True)
+        with st.chat_message("assistant"):
+            try:
+                st.write_stream(stream_answer(payload))
+                load_session_messages("stream", selected_session_id)
+                st.rerun()
+            except requests.exceptions.ConnectionError:
+                st.error("Could not connect to the backend. Is the API running?")
+            except requests.exceptions.Timeout:
+                st.error("The request timed out. The backend may be under heavy load.")
+            except requests.exceptions.HTTPError as exc:
+                response = exc.response
+                detail = response.text if response is not None else str(exc)
+                status_code = response.status_code if response is not None else "unknown"
+                st.error(f"Stream failed ({status_code}): {detail}")
+            except requests.exceptions.RequestException as exc:
+                st.error(f"Stream failed: {exc}")
 
 
 def render_search():
@@ -546,24 +875,28 @@ def render_search():
 
 
 # --------------------------------------------------------------------------
-# App shell
+# App shell — header nav (replaces sidebar)
 # --------------------------------------------------------------------------
 if "page" not in st.session_state or st.session_state["page"] not in PAGE_OPTIONS:
     st.session_state["page"] = "Dashboard"
 
-with st.sidebar:
-    brand_icon, brand_text = st.columns([1, 5], vertical_alignment="center")
-    with brand_icon:
-        st.markdown("### 🧠")
-    with brand_text:
-        st.markdown("### Enterprise RAG")
+st.markdown(
+    '<div class="brand-row"><span class="brand-mark">🧠</span> Enterprise RAG Platform</div>',
+    unsafe_allow_html=True,
+)
 
-    st.divider()
-
-    for page in PAGE_OPTIONS:
+nav_cols = st.columns(len(PAGE_OPTIONS), gap="small")
+for column, page in zip(nav_cols, PAGE_OPTIONS):
+    with column:
+        is_active = st.session_state["page"] == page
+        st.markdown(
+            f'<div class="{"top-nav-active" if is_active else "top-nav"}">',
+            unsafe_allow_html=True,
+        )
         label = f"{PAGE_ICONS[page]}  {page}"
         if st.button(label, key=f"nav-{page}", use_container_width=True):
             set_page(page)
+        st.markdown("</div>", unsafe_allow_html=True)
 
 if st.session_state["page"] == "Dashboard":
     render_dashboard()
