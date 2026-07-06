@@ -69,28 +69,12 @@ Answer:
 
 
 def search_documents(query: str, top_k: int, db: Session, document_id=None, filename=None):
-    query_embedding = generate_embedding(query)
-
-    vector_results = search_similar_chunks(
-        db=db,
-        query_embedding=query_embedding,
-        document_id=document_id,
-        filename=filename,
-        top_k=top_k,
-    )
-
-    keyword_results = keyword_search_chunks(
-        db=db,
+    results = retrieve_relevant_chunks(
         query=query,
+        top_k=top_k,
+        db=db,
         document_id=document_id,
         filename=filename,
-        top_k=top_k,
-    )
-
-    results = hybrid_merge(
-        vector_results=vector_results,
-        keyword_results=keyword_results,
-        top_k=top_k,
     )
 
     return {
@@ -113,6 +97,32 @@ def search_documents(query: str, top_k: int, db: Session, document_id=None, file
     }
 
 
+def retrieve_relevant_chunks(query: str, top_k: int, db: Session, document_id=None, filename=None):
+    query_embedding = generate_embedding(query)
+
+    vector_results = search_similar_chunks(
+        db=db,
+        query_embedding=query_embedding,
+        document_id=document_id,
+        filename=filename,
+        top_k=top_k,
+    )
+
+    keyword_results = keyword_search_chunks(
+        db=db,
+        query=query,
+        document_id=document_id,
+        filename=filename,
+        top_k=top_k,
+    )
+
+    return hybrid_merge(
+        vector_results=vector_results,
+        keyword_results=keyword_results,
+        top_k=top_k,
+    )
+
+
 def chat(query: str, top_k: int, db: Session, session_id: str, document_id=None, filename=None):
     chat_session = get_chat_session_or_throw(db, session_id)
     save_chat_message(db, session_id, CHAT_ROLE_USER, query)
@@ -123,18 +133,18 @@ def chat(query: str, top_k: int, db: Session, session_id: str, document_id=None,
     )
     recent_messages = list(reversed(recent_messages))
 
-    query_embedding = generate_embedding(query)
-
-    received_chunks = search_similar_chunks(
+    received_chunks = retrieve_relevant_chunks(
+        query=query,
+        top_k=top_k,
         db=db,
-        query_embedding=query_embedding,
         document_id=document_id,
         filename=filename,
-        top_k=top_k,
     )
 
     if not received_chunks:
+        save_chat_message(db, session_id, CHAT_ROLE_ASSISTANT, NO_CONTEXT_ANSWER, [])
         return {
+            "session_id": str(chat_session.id),
             "question": query,
             "answer": NO_CONTEXT_ANSWER,
             "citations": [],
@@ -169,14 +179,12 @@ def chat_stream(query: str, top_k: int, db: Session, session_id: str, document_i
     )
     recent_messages = list(reversed(recent_messages))
 
-    query_embedding = generate_embedding(query)
-
-    received_chunks = search_similar_chunks(
+    received_chunks = retrieve_relevant_chunks(
+        query=query,
+        top_k=top_k,
         db=db,
-        query_embedding=query_embedding,
         document_id=document_id,
         filename=filename,
-        top_k=top_k,
     )
 
     if not received_chunks:
@@ -232,7 +240,7 @@ def get_chat_session_or_throw(
 def build_citations(chunks):
     return [
         {
-            "chunk_id": str(chunk["id"]),
+            "chunk_id": str(chunk["chunk_id"]),
             "document_id": str(chunk["document_id"]),
             "filename": chunk["filename"],
             "chunk_index": chunk["chunk_index"],

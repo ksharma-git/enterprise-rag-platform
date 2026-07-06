@@ -3,6 +3,7 @@ import html
 
 import requests
 import streamlit as st
+import streamlit.components.v1 as components
 
 API_URL = os.getenv("BACKEND_API_URL", "http://localhost:8000").rstrip("/")
 PAGE_OPTIONS = ["Dashboard", "Documents", "Chunks", "Chat", "Chat Stream", "Search"]
@@ -408,6 +409,7 @@ def load_session_messages(state_prefix, session_id):
 
     st.session_state[f"{state_prefix}_messages"] = messages
     st.session_state[f"{state_prefix}_messages_error"] = None
+    request_chat_scroll(state_prefix)
 
 
 def append_chat_exchange(state_prefix, query, answer, citations=None):
@@ -468,7 +470,6 @@ def select_chat_session(state_prefix, session_id):
     session_key = f"{state_prefix}_selected_session_id"
     st.session_state[session_key] = session_id
     load_session_messages(state_prefix, session_id)
-    request_chat_scroll(state_prefix)
 
 
 def request_chat_scroll(state_prefix):
@@ -480,13 +481,45 @@ def render_chat_bottom_marker(state_prefix):
     st.markdown(f'<div data-chat-bottom="{state_prefix}"></div>', unsafe_allow_html=True)
 
 
-def render_chat_scroll_script(state_prefix, force=False):
+def render_chat_scroll_script(state_prefix, force=False, placeholder=None):
     scroll_key = f"{state_prefix}_scroll_version"
     rendered_key = f"{state_prefix}_scroll_rendered_version"
     scroll_version = st.session_state.get(scroll_key, 0)
 
     if force or (scroll_version and st.session_state.get(rendered_key) != scroll_version):
         st.session_state[rendered_key] = scroll_version
+        scroll_script = f"""
+        <script>
+        const markers = parent.document.querySelectorAll('[data-chat-bottom="{state_prefix}"]');
+        const marker = markers[markers.length - 1];
+        if (marker) {{
+            const scrollParent = (node) => {{
+                let current = node.parentElement;
+                while (current && current !== parent.document.body) {{
+                    const style = parent.getComputedStyle(current);
+                    const canScroll = /(auto|scroll)/.test(style.overflowY);
+                    if (canScroll && current.scrollHeight > current.clientHeight) {{
+                        return current;
+                    }}
+                    current = current.parentElement;
+                }}
+                return null;
+            }};
+            const container = scrollParent(marker);
+            if (container) {{
+                container.scrollTop = container.scrollHeight;
+            }} else {{
+                marker.scrollIntoView({{ block: "end" }});
+            }}
+        }}
+        </script>
+        """
+        if placeholder is None:
+            components.html(scroll_script, height=0, width=0)
+        else:
+            placeholder.empty()
+            with placeholder.container():
+                components.html(scroll_script, height=0, width=0)
 
 
 def render_session_list(state_prefix):
@@ -870,6 +903,8 @@ def render_chat_stream():
                     render_message_bubble({"role": "user", "content": query})
                     answer_placeholder = st.empty()
                     render_chat_bottom_marker("stream")
+                    stream_scroll_placeholder = st.empty()
+                render_chat_scroll_script("stream", force=True, placeholder=stream_scroll_placeholder)
 
                 for token in stream_answer(payload):
                     accumulated_answer += token
@@ -881,6 +916,7 @@ def render_chat_stream():
                         """,
                         unsafe_allow_html=True,
                     )
+                    render_chat_scroll_script("stream", force=True, placeholder=stream_scroll_placeholder)
                 append_chat_exchange("stream", query, accumulated_answer)
                 st.rerun()
             except requests.exceptions.ConnectionError:
