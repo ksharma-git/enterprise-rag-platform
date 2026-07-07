@@ -291,13 +291,15 @@ st.markdown(
         text-overflow: ellipsis;
         white-space: nowrap;
     }
+    [class*="st-key-chat_session_"] button,
+    [class*="st-key-stream_session_"] button,
     button[title^="Open chat session"],
     button[aria-label^="Open chat session"],
     button[title^="Selected chat session"],
     button[aria-label^="Selected chat session"] {
         min-height: 2.25rem !important;
         justify-content: flex-start !important;
-        padding: 0 0.75rem !important;
+        padding: 0 0.6rem 0 0.75rem !important;
         border-radius: 8px 0 0 8px !important;
         box-shadow: none !important;
         font-weight: 500 !important;
@@ -334,12 +336,15 @@ st.markdown(
         font-size: 0.86rem !important;
         box-shadow: none !important;
     }
+    [class*="st-key-chat_delete_session_"] button,
+    [class*="st-key-stream_delete_session_"] button,
     button[title^="Delete chat session"],
     button[aria-label^="Delete chat session"],
     button[title^="Delete selected chat session"],
     button[aria-label^="Delete selected chat session"] {
         min-height: 2.25rem !important;
-        width: 2.25rem !important;
+        width: 2rem !important;
+        min-width: 2rem !important;
         padding: 0 !important;
         border-radius: 8px !important;
         color: var(--text-muted) !important;
@@ -349,11 +354,29 @@ st.markdown(
         opacity: 0.62;
         transition: opacity 0.12s ease, background 0.12s ease, color 0.12s ease;
     }
+    [class*="st-key-chat_delete_session_"],
+    [class*="st-key-stream_delete_session_"] {
+        display: flex !important;
+        justify-content: flex-end !important;
+    }
+    [class*="st-key-chat_delete_session_"] button p,
+    [class*="st-key-stream_delete_session_"] button p,
+    button[title^="Delete chat session"] p,
+    button[aria-label^="Delete chat session"] p,
+    button[title^="Delete selected chat session"] p,
+    button[aria-label^="Delete selected chat session"] p {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 100%;
+    }
     button[title^="Delete selected chat session"],
     button[aria-label^="Delete selected chat session"] {
         color: #1d4ed8 !important;
         opacity: 0.78;
     }
+    [class*="st-key-chat_delete_session_"] button:hover,
+    [class*="st-key-stream_delete_session_"] button:hover,
     button[title^="Delete chat session"]:hover,
     button[aria-label^="Delete chat session"]:hover,
     button[title^="Delete selected chat session"]:hover,
@@ -578,6 +601,33 @@ def submit_chat_message():
     st.session_state["chat_query"] = ""
 
 
+def submit_stream_message():
+    selected_session_id = st.session_state.get("stream_selected_session_id")
+    query = (st.session_state.get("stream_query") or "").strip()
+
+    st.session_state["stream_submit_warning"] = None
+
+    if not selected_session_id:
+        st.session_state["stream_submit_warning"] = "Create or select a chat to begin."
+        return
+    if not query:
+        st.session_state["stream_submit_warning"] = "Please enter a question."
+        return
+
+    payload = build_query_payload(
+        query,
+        st.session_state.get("stream_top_k", 3),
+        st.session_state.get("stream_document_id", ""),
+        st.session_state.get("stream_filename", ""),
+        selected_session_id,
+    )
+    st.session_state["stream_pending_request"] = {
+        "query": query,
+        "payload": payload,
+    }
+    st.session_state["stream_query"] = ""
+
+
 def select_chat_session(state_prefix, session_id):
     session_key = f"{state_prefix}_selected_session_id"
     st.session_state[session_key] = session_id
@@ -763,7 +813,7 @@ def render_session_list(state_prefix):
                     if selected
                     else f"Open chat session: {session_id}"
                 )
-                session_col, delete_col = st.columns([0.86, 0.14], gap="small")
+                session_col, delete_col = st.columns([0.88, 0.12], gap="small")
                 with session_col:
                     if st.button(
                         title,
@@ -777,6 +827,7 @@ def render_session_list(state_prefix):
                     if st.button(
                         "🗑",
                         key=f"{state_prefix}_delete_session_{session_id}",
+                        use_container_width=True,
                         help=(
                             f"Delete selected chat session: {session_id}"
                             if selected
@@ -1006,7 +1057,7 @@ def render_chunks():
 def render_chat():
     page_header("Assistant", "Chat", "Ask questions against your uploaded document knowledge base.")
 
-    sessions_col, conversation_col = st.columns([1.05, 3.0], gap="small")
+    sessions_col, conversation_col = st.columns([1.35, 2.75], gap="small")
 
     with sessions_col:
         selected_session_id = render_session_list("chat")
@@ -1063,13 +1114,14 @@ def stream_answer(payload):
 def render_chat_stream():
     page_header("Assistant", "Chat Stream", "Ask questions and stream the answer as it is generated.")
 
-    sessions_col, conversation_col = st.columns([1.05, 3.0], gap="small")
+    sessions_col, conversation_col = st.columns([1.35, 2.75], gap="small")
 
     with sessions_col:
         selected_session_id = render_session_list("stream")
 
     with conversation_col:
         top_k, document_id, filename = render_chat_options("stream")
+        pending_stream = st.session_state.get("stream_pending_request")
 
         st.markdown('<div class="chat-layout-title">Conversation</div>', unsafe_allow_html=True)
         message_container = st.container(height=570, border=True)
@@ -1082,43 +1134,47 @@ def render_chat_stream():
                     st.error(message_error)
                 else:
                     render_chat_messages(st.session_state.get("stream_messages", []))
+            live_user_placeholder = st.empty()
+            live_answer_placeholder = st.empty()
             render_chat_bottom_marker("stream")
+            stream_scroll_placeholder = st.empty()
         render_chat_scroll_script("stream")
+        composer_placeholder = st.empty()
 
-        with st.form("stream_composer", clear_on_submit=True):
-            query = st.text_area(
+        with composer_placeholder.container():
+            st.text_area(
                 "Message",
                 height=95,
                 placeholder="Ask a question and stream the answer",
-                disabled=not selected_session_id,
+                disabled=not selected_session_id or bool(pending_stream),
+                key="stream_query",
             )
-            stream_clicked = st.form_submit_button(
+            st.button(
                 "Stream",
-                disabled=not selected_session_id,
+                disabled=not selected_session_id or bool(pending_stream),
                 type="primary",
                 use_container_width=True,
+                on_click=submit_stream_message,
+                help="Submit stream message",
             )
 
-        if stream_clicked:
-            query = query.strip()
-            if not query:
-                st.warning("Please enter a question.")
-                return
+        submit_warning = st.session_state.get("stream_submit_warning")
+        if submit_warning:
+            st.warning(submit_warning)
 
-            payload = build_query_payload(query, top_k, document_id, filename, selected_session_id)
+        if pending_stream:
+            query = pending_stream["query"]
+            payload = pending_stream["payload"]
             accumulated_answer = ""
 
             try:
-                with message_container:
+                with live_user_placeholder.container():
                     render_message_bubble({"role": "user", "content": query})
-                    answer_placeholder = st.empty()
-                    render_chat_bottom_marker("stream")
-                    stream_scroll_placeholder = st.empty()
                 render_chat_scroll_script("stream", force=True, placeholder=stream_scroll_placeholder)
 
                 for token in stream_answer(payload):
                     accumulated_answer += token
-                    answer_placeholder.markdown(
+                    live_answer_placeholder.markdown(
                         f"""
                         <div class="message-row assistant">
                             <div class="message-bubble">{html.escape(accumulated_answer)}</div>
@@ -1128,18 +1184,24 @@ def render_chat_stream():
                     )
                     render_chat_scroll_script("stream", force=True, placeholder=stream_scroll_placeholder)
                 append_chat_exchange("stream", query, accumulated_answer)
+                st.session_state.pop("stream_pending_request", None)
                 st.rerun()
             except requests.exceptions.ConnectionError:
+                st.session_state.pop("stream_pending_request", None)
                 st.error("Could not connect to the backend. Is the API running?")
             except requests.exceptions.Timeout:
+                st.session_state.pop("stream_pending_request", None)
                 st.error("The request timed out. The backend may be under heavy load.")
             except requests.exceptions.HTTPError as exc:
+                st.session_state.pop("stream_pending_request", None)
                 response = exc.response
                 detail = response.text if response is not None else str(exc)
                 status_code = response.status_code if response is not None else "unknown"
                 st.error(f"Stream failed ({status_code}): {detail}")
             except requests.exceptions.RequestException as exc:
+                st.session_state.pop("stream_pending_request", None)
                 st.error(f"Stream failed: {exc}")
+            return
 
 
 def render_search():
