@@ -40,3 +40,25 @@ class DocumentChunk(Base):
     created_at = Column(TIMESTAMP, server_default=func.now())
 
     document = relationship("Document", back_populates="chunks")
+
+class ChatSession(Base):
+    __tablename__ = "chat_sessions"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    title = Column(Text, default="Chat Session")
+    created_at = Column(TIMESTAMP, server_default=func.now())
+    updated_at = Column(TIMESTAMP, server_default=func.now())
+
+class ChatMessage(Base):
+    __tablename__ = "chat_messages"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    session_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("chat_sessions.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    role = Column(Text, nullable=False)
+    content = Column(Text, nullable=False)
+    citations = Column(JSONB, default=[])
+    created_at = Column(TIMESTAMP, server_default=func.now())

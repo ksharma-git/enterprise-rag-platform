@@ -86,11 +86,12 @@ enterprise-rag-platform/
 
 | Component | Responsibility |
 | --- | --- |
-| `frontend/app.py` | Minimal Streamlit UI for upload, chat, documents, chunks, delete |
+| `frontend/app.py` | Streamlit UI for upload, documents, chunks, search, persisted chat sessions, chat delete, and streaming chat |
 | `app/main.py` | Creates the FastAPI app and registers routers |
 | `app/api/health.py` | Health endpoint |
 | `app/api/documents.py` | Document, chunk, upload, search API routes |
-| `app/api/chat.py` | Chat API route |
+| `app/api/chat.py` | Chat and streaming chat API routes |
+| `app/api/session.py` | Chat session create, list, message history, and delete routes |
 | `app/services/chunking_service.py` | Fixed and paragraph-aware chunking helpers |
 | `app/services/document_service.py` | Upload workflow, extraction, chunking, document listing, delete |
 | `app/services/embedding_service.py` | Calls Ollama embedding API |
@@ -124,6 +125,10 @@ Model runtime: Ollama
 | `DELETE` | `/documents/{document_id}` | Delete a document and its chunks |
 | `GET` | `/chunks` | List stored chunks |
 | `POST` | `/search` | Hybrid vector + keyword search over chunks |
+| `POST` | `/chat/sessions` | Create a persisted chat session |
+| `GET` | `/chat/sessions` | List persisted chat sessions |
+| `GET` | `/chat/sessions/{session_id}/messages` | Load message history for a chat session |
+| `DELETE` | `/chat/sessions/{session_id}` | Delete a chat session and its messages |
 | `POST` | `/chat` | RAG chat answer with citations |
 | `POST` | `/chat/stream` | RAG chat answer streamed as plain text |
 
@@ -502,6 +507,32 @@ Plain text response stream
 ```
 
 The Streamlit frontend exposes this through the `Chat Stream` tab. Use the regular `Chat` tab when citations are needed in the response. Use `Chat Stream` when the answer should appear incrementally while the model is generating it.
+
+The streaming composer uses an in-flight session-state latch to prevent duplicate
+submissions. After the first click, the text area and stream button are disabled,
+the button displays `Generating response...`, and the UI shows a spinner until the
+stream completes or fails. On success, the completed exchange is appended to the
+session history and the view reruns. On failure, the in-flight latch is cleared and
+the controls are re-enabled with the error shown in the page.
+
+## Chat Session UI Flow
+
+Both `Chat` and `Chat Stream` use the same session sidebar. The sidebar loads
+persisted sessions from `/chat/sessions`, opens the selected session by fetching
+`/chat/sessions/{session_id}/messages`, and deletes sessions through
+`DELETE /chat/sessions/{session_id}` after confirmation.
+
+The frontend keeps the session list compact:
+
+- `+ New Chat` and `Refresh` are aligned in one row.
+- Each session is a single horizontal row.
+- The title is rendered as left-aligned row text and truncates when long.
+- The delete action is a small trash icon aligned on the right.
+- The selected session keeps the application's blue highlight.
+
+Chat and stream conversations request an automatic scroll only when messages are
+loaded, appended, or streamed, so user scroll position is not changed unless new
+message content arrives.
 
 ### Chat Sequence Diagram
 

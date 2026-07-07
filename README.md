@@ -19,6 +19,9 @@ Enterprise RAG Platform is a local retrieval-augmented generation API for upload
 
 - Hybrid Search
 - Metadata Filtering
+- Persisted Chat Sessions
+- Chat Session Delete
+- Streamed Chat UX Improvements
 
 ## Project Structure
 
@@ -157,4 +160,19 @@ Run the Streamlit frontend:
 
 ```bash
 streamlit run frontend/app.py
+```
+
+The Streamlit UI includes a compact chat-session sidebar for both `Chat` and `Chat Stream`.
+Session rows are horizontal list items with the title on the left and a trash action on
+the right. Deleting a session requires confirmation.
+
+`Chat Stream` disables the composer immediately after submit, shows a
+`Generating response...` state while the backend streams, and re-enables controls after
+the response completes or fails. Both chat pages auto-scroll when new messages arrive.
+
+When validating frontend changes in Docker, rebuild the frontend image because
+`frontend/app.py` is copied into the image at build time:
+
+```bash
+docker compose up -d --build frontend-ui-app
 ```

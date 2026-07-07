@@ -30,6 +30,7 @@ def hybrid_merge(vector_results, keyword_results, top_k: int = 5):
             "chunk_text": row["chunk_text"],
             "chunk_index": row["chunk_index"],
             "chunk_metadata": row["chunk_metadata"],
+            "distance": row["distance"],
             "vector_score": vector_score,
             "keyword_score": 0.0,
         }
@@ -46,6 +47,7 @@ def hybrid_merge(vector_results, keyword_results, top_k: int = 5):
                 "chunk_text": row["chunk_text"],
                 "chunk_index": row["chunk_index"],
                 "chunk_metadata": row["chunk_metadata"],
+                "distance": None,
                 "vector_score": 0.0,
                 "keyword_score": keyword_score,
             }
@@ -60,5 +62,3 @@ def hybrid_merge(vector_results, keyword_results, top_k: int = 5):
         key=lambda item: item["hybrid_score"],
         reverse=True,
     )[:top_k]
-
-
