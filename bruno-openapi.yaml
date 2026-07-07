@@ -113,6 +113,20 @@ paths:
         "200":
           description: Chat messages
 
+  /chat/sessions/{session_id}:
+    delete:
+      summary: Delete chat session
+      description: Deletes a chat session and its messages.
+      parameters:
+        - name: session_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Chat session delete response
+
   /chat:
     post:
       summary: Chat with citations
