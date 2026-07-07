@@ -282,21 +282,66 @@ st.markdown(
         text-overflow: ellipsis;
         white-space: nowrap;
     }
+    div[data-testid="stVerticalBlockBorderWrapper"]:has([class*="st-key-chat_session_"]),
+    div[data-testid="stVerticalBlockBorderWrapper"]:has([class*="st-key-stream_session_"]) {
+        padding: 0.5rem !important;
+    }
+    div[data-testid="stHorizontalBlock"]:has([class*="st-key-chat_session_"]),
+    div[data-testid="stHorizontalBlock"]:has([class*="st-key-stream_session_"]) {
+        margin-left: -0.6rem !important;
+        margin-right: -0.2rem !important;
+        width: calc(100% + 0.8rem) !important;
+    }
     [class*="st-key-chat_session_"] button,
     [class*="st-key-stream_session_"] button,
     button[title^="Open chat session"],
     button[aria-label^="Open chat session"],
     button[title^="Selected chat session"],
     button[aria-label^="Selected chat session"] {
+        display: flex !important;
+        width: 100% !important;
         min-height: 2.25rem !important;
         justify-content: flex-start !important;
-        padding: 0 0.6rem 0 0.75rem !important;
+        align-items: center !important;
+        text-align: left !important;
+        padding: 0 0.45rem 0 0.25rem !important;
         border-radius: 8px 0 0 8px !important;
         box-shadow: none !important;
         font-weight: 500 !important;
         background: transparent !important;
         border-color: transparent !important;
         color: var(--brand-navy) !important;
+    }
+    [class*="st-key-chat_session_"] button [data-testid="stMarkdownContainer"],
+    [class*="st-key-stream_session_"] button [data-testid="stMarkdownContainer"],
+    button[title^="Open chat session"] [data-testid="stMarkdownContainer"],
+    button[aria-label^="Open chat session"] [data-testid="stMarkdownContainer"],
+    button[title^="Selected chat session"] [data-testid="stMarkdownContainer"],
+    button[aria-label^="Selected chat session"] [data-testid="stMarkdownContainer"] {
+        flex: 1 1 auto !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        text-align: left !important;
+    }
+    [class*="st-key-chat_session_"] button > div,
+    [class*="st-key-stream_session_"] button > div,
+    [class*="st-key-chat_session_"] button > div > span,
+    [class*="st-key-stream_session_"] button > div > span {
+        flex: 1 1 auto !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        justify-content: flex-start !important;
+        text-align: left !important;
+    }
+    [class*="st-key-chat_session_"] button p,
+    [class*="st-key-stream_session_"] button p,
+    button[title^="Open chat session"] p,
+    button[aria-label^="Open chat session"] p,
+    button[title^="Selected chat session"] p,
+    button[aria-label^="Selected chat session"] p {
+        width: 100% !important;
+        margin: 0 !important;
+        text-align: left !important;
     }
     button[title^="Open chat session"]:hover,
     button[aria-label^="Open chat session"]:hover {
@@ -808,7 +853,7 @@ def render_session_list(state_prefix):
                     if selected
                     else f"Open chat session: {session_id}"
                 )
-                session_col, delete_col = st.columns([0.88, 0.12], gap="small")
+                session_col, delete_col = st.columns([0.9, 0.1], gap=None)
                 with session_col:
                     if st.button(
                         title,
