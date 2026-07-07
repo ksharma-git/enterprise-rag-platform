@@ -79,18 +79,34 @@ The paragraph-aware strategy keeps paragraphs together when they fit within the 
 Chat:
 
 ```text
+POST /chat/sessions
+  -> create a persisted chat session
+
+GET /chat/sessions
+  -> list chat sessions ordered by most recently updated
+
+GET /chat/sessions/{session_id}/messages
+  -> load messages for a selected session
+
+DELETE /chat/sessions/{session_id}
+  -> delete a chat session and its messages
+
 POST /chat
+  -> save user message
   -> generate query embedding
   -> search similar chunks in pgvector
   -> build RAG context and prompt
   -> generate answer with llama3.2
+  -> save assistant message
   -> return answer with citations
 
 POST /chat/stream
+  -> save user message
   -> generate query embedding
   -> search similar chunks in pgvector
   -> build RAG context and prompt
   -> stream the llama3.2 answer as plain text
+  -> save assistant message after streaming completes
 ```
 
 ## Run Application
@@ -146,6 +162,32 @@ curl -s -X POST "http://localhost:8000/search" \
   }' | jq
 ```
 
+## Chat Sessions
+
+Create a chat session before calling `/chat` or `/chat/stream`:
+
+```bash
+curl -s -X POST "http://localhost:8000/chat/sessions" | jq
+```
+
+List sessions:
+
+```bash
+curl -s -X GET "http://localhost:8000/chat/sessions" | jq
+```
+
+Load messages for a session:
+
+```bash
+curl -s -X GET "http://localhost:8000/chat/sessions/{session_id}/messages" | jq
+```
+
+Delete a session and its messages:
+
+```bash
+curl -s -X DELETE "http://localhost:8000/chat/sessions/{session_id}" | jq
+```
+
 ## Chat
 
 ```bash
@@ -153,6 +195,7 @@ curl -s -X POST "http://localhost:8000/chat" \
   -H "Content-Type: application/json" \
   -d '{
     "query": "What is the story about?",
+    "session_id": "{session_id}",
     "top_k": 3,
     "document_id": null,
     "filename": null
@@ -168,6 +211,7 @@ curl -N -X POST "http://localhost:8000/chat/stream" \
   -H "Content-Type: application/json" \
   -d '{
     "query": "What is the story about?",
+    "session_id": "{session_id}",
     "top_k": 3,
     "document_id": null,
     "filename": null
