@@ -154,6 +154,8 @@ Required local models:
 
 See `backend/README.md` for API run commands, upload examples, search/chat examples, and DB verification queries.
 
+For a portfolio-ready walkthrough, see `demo/DEMO.md`.
+
 ## Frontend
 
 Run the Streamlit frontend:
