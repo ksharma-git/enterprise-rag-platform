@@ -168,18 +168,9 @@ st.markdown(
     }
 
     .section-divider {
-        margin: 1.1rem 0 1.1rem 0;
+        margin: 0.75rem 0;
         border: none;
         border-top: 1px solid var(--border-color);
-    }
-
-    .page-eyebrow {
-        text-transform: uppercase;
-        letter-spacing: 0.08em;
-        font-size: 0.72rem;
-        font-weight: 700;
-        color: var(--brand-blue);
-        margin-bottom: 0.3rem;
     }
 
     .empty-state {
@@ -400,13 +391,6 @@ def set_page(page):
     st.rerun()
 
 
-def page_header(eyebrow, title, subtitle):
-    st.markdown(f'<div class="page-eyebrow">{eyebrow}</div>', unsafe_allow_html=True)
-    st.title(title)
-    st.write(subtitle)
-    st.markdown('<hr class="section-divider" />', unsafe_allow_html=True)
-
-
 def build_query_payload(query, top_k, document_id, filename, session_id=None):
     payload = {"query": query, "top_k": int(top_k)}
     if session_id:
@@ -606,6 +590,10 @@ def submit_stream_message():
     query = (st.session_state.get("stream_query") or "").strip()
 
     st.session_state["stream_submit_warning"] = None
+    st.session_state["stream_submit_error"] = None
+
+    if st.session_state.get("stream_pending_request") or st.session_state.get("stream_in_flight"):
+        return
 
     if not selected_session_id:
         st.session_state["stream_submit_warning"] = "Create or select a chat to begin."
@@ -625,7 +613,14 @@ def submit_stream_message():
         "query": query,
         "payload": payload,
     }
+    st.session_state["stream_in_flight"] = True
     st.session_state["stream_query"] = ""
+
+
+def clear_stream_pending(error=None):
+    st.session_state.pop("stream_pending_request", None)
+    st.session_state["stream_in_flight"] = False
+    st.session_state["stream_submit_error"] = error
 
 
 def select_chat_session(state_prefix, session_id):
@@ -934,13 +929,6 @@ def render_chat_options(state_prefix, default_top_k=3):
 # Pages
 # --------------------------------------------------------------------------
 def render_dashboard():
-    page_header(
-        "Overview",
-        "Enterprise RAG Platform",
-        "A production-inspired Retrieval-Augmented Generation platform built with "
-        "FastAPI, PostgreSQL + pgvector, Ollama, hybrid search, and Streamlit.",
-    )
-
     cards = [
         ("📤", "Upload Documents", "Add PDF, text, or markdown files to the enterprise knowledge base.", "Documents", "Open Upload"),
         ("📚", "Documents Library", "Review uploaded documents and remove documents when needed.", "Documents", "Open Library"),
@@ -958,8 +946,6 @@ def render_dashboard():
 
 
 def render_documents():
-    page_header("Knowledge Base", "Documents", "Upload files and manage the document library.")
-
     st.subheader("Upload Documents")
     upload_col, meta_col = st.columns([2, 1])
     with upload_col:
@@ -1031,8 +1017,6 @@ def render_documents():
 
 
 def render_chunks():
-    page_header("Knowledge Base", "Chunks", "Explore document chunks available for retrieval.")
-
     if st.button("Load Chunks", use_container_width=False):
         with st.spinner("Loading chunks..."):
             response, error = safe_request("GET", f"{API_URL}/chunks", timeout=60)
@@ -1055,8 +1039,6 @@ def render_chunks():
 
 
 def render_chat():
-    page_header("Assistant", "Chat", "Ask questions against your uploaded document knowledge base.")
-
     sessions_col, conversation_col = st.columns([1.35, 2.75], gap="small")
 
     with sessions_col:
@@ -1112,8 +1094,6 @@ def stream_answer(payload):
 
 
 def render_chat_stream():
-    page_header("Assistant", "Chat Stream", "Ask questions and stream the answer as it is generated.")
-
     sessions_col, conversation_col = st.columns([1.35, 2.75], gap="small")
 
     with sessions_col:
@@ -1122,6 +1102,9 @@ def render_chat_stream():
     with conversation_col:
         top_k, document_id, filename = render_chat_options("stream")
         pending_stream = st.session_state.get("stream_pending_request")
+        if not pending_stream and st.session_state.get("stream_in_flight"):
+            st.session_state["stream_in_flight"] = False
+        stream_busy = bool(pending_stream) or bool(st.session_state.get("stream_in_flight"))
 
         st.markdown('<div class="chat-layout-title">Conversation</div>', unsafe_allow_html=True)
         message_container = st.container(height=570, border=True)
@@ -1140,18 +1123,19 @@ def render_chat_stream():
             stream_scroll_placeholder = st.empty()
         render_chat_scroll_script("stream")
         composer_placeholder = st.empty()
+        stream_status_placeholder = st.empty()
 
         with composer_placeholder.container():
             st.text_area(
                 "Message",
                 height=95,
                 placeholder="Ask a question and stream the answer",
-                disabled=not selected_session_id or bool(pending_stream),
+                disabled=not selected_session_id or stream_busy,
                 key="stream_query",
             )
             st.button(
-                "Stream",
-                disabled=not selected_session_id or bool(pending_stream),
+                "Generating response..." if stream_busy else "Stream",
+                disabled=not selected_session_id or stream_busy,
                 type="primary",
                 use_container_width=True,
                 on_click=submit_stream_message,
@@ -1159,8 +1143,11 @@ def render_chat_stream():
             )
 
         submit_warning = st.session_state.get("stream_submit_warning")
+        submit_error = st.session_state.get("stream_submit_error")
         if submit_warning:
             st.warning(submit_warning)
+        if submit_error:
+            st.error(submit_error)
 
         if pending_stream:
             query = pending_stream["query"]
@@ -1168,45 +1155,49 @@ def render_chat_stream():
             accumulated_answer = ""
 
             try:
-                with live_user_placeholder.container():
-                    render_message_bubble({"role": "user", "content": query})
-                render_chat_scroll_script("stream", force=True, placeholder=stream_scroll_placeholder)
+                with stream_status_placeholder.container():
+                    with st.spinner("Generating response..."):
+                        with live_user_placeholder.container():
+                            render_message_bubble({"role": "user", "content": query})
+                        render_chat_scroll_script("stream", force=True, placeholder=stream_scroll_placeholder)
 
-                for token in stream_answer(payload):
-                    accumulated_answer += token
-                    live_answer_placeholder.markdown(
-                        f"""
-                        <div class="message-row assistant">
-                            <div class="message-bubble">{html.escape(accumulated_answer)}</div>
-                        </div>
-                        """,
-                        unsafe_allow_html=True,
-                    )
-                    render_chat_scroll_script("stream", force=True, placeholder=stream_scroll_placeholder)
+                        for token in stream_answer(payload):
+                            accumulated_answer += token
+                            live_answer_placeholder.markdown(
+                                f"""
+                                <div class="message-row assistant">
+                                    <div class="message-bubble">{html.escape(accumulated_answer)}</div>
+                                </div>
+                                """,
+                                unsafe_allow_html=True,
+                            )
+                            render_chat_scroll_script("stream", force=True, placeholder=stream_scroll_placeholder)
+                stream_status_placeholder.empty()
                 append_chat_exchange("stream", query, accumulated_answer)
-                st.session_state.pop("stream_pending_request", None)
+                clear_stream_pending()
                 st.rerun()
             except requests.exceptions.ConnectionError:
-                st.session_state.pop("stream_pending_request", None)
-                st.error("Could not connect to the backend. Is the API running?")
+                clear_stream_pending("Could not connect to the backend. Is the API running?")
+                st.rerun()
             except requests.exceptions.Timeout:
-                st.session_state.pop("stream_pending_request", None)
-                st.error("The request timed out. The backend may be under heavy load.")
+                clear_stream_pending("The request timed out. The backend may be under heavy load.")
+                st.rerun()
             except requests.exceptions.HTTPError as exc:
-                st.session_state.pop("stream_pending_request", None)
                 response = exc.response
                 detail = response.text if response is not None else str(exc)
                 status_code = response.status_code if response is not None else "unknown"
-                st.error(f"Stream failed ({status_code}): {detail}")
+                clear_stream_pending(f"Stream failed ({status_code}): {detail}")
+                st.rerun()
             except requests.exceptions.RequestException as exc:
-                st.session_state.pop("stream_pending_request", None)
-                st.error(f"Stream failed: {exc}")
+                clear_stream_pending(f"Stream failed: {exc}")
+                st.rerun()
+            except Exception as exc:
+                clear_stream_pending(f"Stream failed: {exc}")
+                st.rerun()
             return
 
 
 def render_search():
-    page_header("Assistant", "Search", "Run retrieval with optional metadata filters.")
-
     search_query = st.text_area("Search query", height=120, placeholder="Enter keywords or a natural-language query")
     col1, col2, col3 = st.columns(3)
     top_k = col1.number_input("Top K", min_value=1, max_value=20, value=5, key="search_top_k")
